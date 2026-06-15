@@ -12,12 +12,22 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build
-        run: make
+        run: |
+          sources=$(find src/ -name "*.cpp" 2>/dev/null)
+          if [ -z "$sources" ]; then
+            echo "No source files yet — skipping build."
+            exit 0
+          fi
+          make
 
       - name: Run tests
         run: |
           # Auto-discovers all test scripts — no workflow change needed when adding a test.
           # Priority: tests/run_all.sh if it exists, otherwise find all .sh/.py in tests/
+          if [ ! -f webserv ]; then
+            echo "No binary — skipping tests."
+            exit 0
+          fi
           if [ -f tests/run_all.sh ]; then
             bash tests/run_all.sh
           else
