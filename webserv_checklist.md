@@ -4,13 +4,13 @@
 
 ## 🟦 0. Setup du repo (toute la team — à faire en premier, ensemble)
 
-- [ ] Créer le repo Git
-- [ ] Créer l'arborescence de dossiers (`include/`, `src/`, `config/`, `www/`, `tests/`)
-- [ ] Écrire le `Makefile` (NAME, all, clean, fclean, re)
+- [x] Créer le repo Git
+- [x] Créer l'arborescence de dossiers (`include/`, `src/`, `config/`, `www/`, `tests/`)
+- [x] Écrire le `Makefile` (NAME, all, clean, fclean, re)
 - [ ] Vérifier que `make` compile un `main.cpp` vide avec `-Wall -Wextra -Werror -std=c++98`
 - [ ] Vérifier que `make re` ne fait pas de relink inutile
-- [ ] Créer `.gitignore` (`*.o`, le binaire `webserv`, fichiers macOS `.DS_Store`)
-- [ ] Créer les branches : `feature/core-server`, `feature/http-layer`, `feature/config-parsing`
+- [x] Créer `.gitignore` (`*.o`, le binaire `webserv`, fichiers macOS `.DS_Store`)
+- [ ] Créer les branches : `core-server`, `http-layer`, `config-parsing`
 - [ ] Définir et écrire le contrat d'interface `HttpDispatcher.hpp` (signature commune entre Core Server et HTTP Layer)
 - [ ] Créer `README.md` avec la première ligne italique obligatoire : _This project has been created as part of the 42 curriculum by ..._
 
