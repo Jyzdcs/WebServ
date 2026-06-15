@@ -63,6 +63,21 @@ docs/        — subject and evaluation reference
 | Skill | Location | How to invoke |
 |-------|----------|---------------|
 | `pr-review` | `.agents/skills/pr-review/SKILL.md` | Cursor: skill invocation / Claude Code: `/project:pr-review` |
+| `run-tests` | `.agents/skills/run-tests/SKILL.md` | Cursor: skill invocation / Claude Code: `/project:run-tests` |
+
+## Tests
+
+```
+tests/
+  run_all.sh          — lance tout (ou un module: config / server / http)
+  helpers.sh          — utilitaires partagés (start_server, assert_eq, http_status...)
+  config/             — tests du module Config Parsing
+  server/             — tests du module Core Server
+  http/               — tests du module HTTP Layer
+```
+
+Chaque module owner est responsable d'écrire les tests de son module dans le dossier correspondant.
+Le skill `run-tests` détecte automatiquement quel module est touché et décide si un test doit être ajouté.
 
 ---
 
