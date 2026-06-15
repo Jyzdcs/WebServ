@@ -1,9 +1,10 @@
 #include "config/ConfigMock.hpp"
 #include <iostream>
 
-// Démo : fait EXACTEMENT ce que tes potes feront -> CONSOMMER le Config via les
-// getters. Prouve que l'interface marche. À remplacer par le vrai main() plus tard.
-// C++98 : on itère avec des const_iterator (pas de for-range, qui est du C++11).
+// Démonstration de consommation : parcourt le Config via les getters, comme le
+// feront les modules core server et http layer. Sert à valider l'interface.
+// Entrée temporaire, à remplacer par le main() réel.
+// C++98 : itération via const_iterator (le range-for est du C++11).
 int main()
 {
     Config config = createMockConfig();

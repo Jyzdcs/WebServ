@@ -1,8 +1,8 @@
 #include "config/ConfigMock.hpp"
 
-// Ce mock reproduit EN DUR un fichier .conf (aucun fichier lu, aucun parsing).
-// Quand le vrai parser existera, c'est LUI qui produira ce Config en lisant un
-// fichier. Ici on triche : on appelle les setters à la main.
+// Reproduit en dur le contenu d'un fichier .conf (aucun fichier lu, aucun parsing).
+// À terme, le parser produira ce Config à partir d'un fichier ; ici la
+// configuration est construite via des appels successifs aux setters.
 
 Config createMockConfig()
 {
@@ -39,13 +39,13 @@ Config createMockConfig()
     LocationConfig cgi;
     cgi.setPath("/cgi-bin");
     cgi.setCgiExtension(".php");
-    cgi.setCgiPath("/usr/bin/php-cgi");             // NOUVEAU champ de ton pote : l'interpréteur
+    cgi.setCgiPath("/usr/bin/php-cgi");             // interpréteur CGI associé à l'extension
     server.addLocation(cgi);
 
     // --- location "/old" : exemple de REDIRECTION (nouveau champ) ---
     LocationConfig redirect;
     redirect.setPath("/old");
-    redirect.setRedirectUrl("https://webserv.com/new");   // NOUVEAU champ de ton pote
+    redirect.setRedirectUrl("https://webserv.com/new");   // URL cible de la redirection
     server.addLocation(redirect);
 
     config.addServer(server);

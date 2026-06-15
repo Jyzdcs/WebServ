@@ -2,10 +2,10 @@
 #define CONFIG_HPP
 
 #include <vector>
-#include "ServerConfig.hpp"   // Config CONTIENT des ServerConfig -> include obligatoire.
+#include "ServerConfig.hpp"   // Config contient des ServerConfig par valeur -> include requis.
 
-// Config = la "boîte à archives" : elle ne parse RIEN, elle range les ServerConfig
-// parsés (ou ici, fabriqués en dur par le mock) et permet de les consulter.
+// Conteneur de haut niveau : ne réalise aucun parsing, stocke les ServerConfig
+// (produits par le parser ou construits manuellement) et donne accès à ceux-ci.
 class Config {
 private:
     std::vector<ServerConfig>  _servers;   // 1 ou N blocs server -> conteneur dynamique.
@@ -14,10 +14,10 @@ public:
     Config();
     ~Config();
 
-    // Écriture : appelé par le parser (ou le mock) pour remplir la boîte.
+    // Écriture : ajoute un serveur à la configuration.
     void addServer(const ServerConfig& server);
 
-    // Lecture : appelé par tes potes pour consulter la config (copie évitée, lecture seule).
+    // Lecture seule : retourne une référence (évite la copie du vector).
     const std::vector<ServerConfig>&  getServers() const;
 };
 
