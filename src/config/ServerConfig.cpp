@@ -1,4 +1,4 @@
-#include "ServerConfig.hpp"
+#include "config/ServerConfig.hpp"
 
 // Types primitifs (int, size_t) initialisés à 0 pour éviter des valeurs indéterminées.
 ServerConfig::ServerConfig() : _port(0), _max_body_size(0) {}

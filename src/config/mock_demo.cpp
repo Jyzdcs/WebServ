@@ -1,4 +1,4 @@
-#include "ConfigMock.hpp"
+#include "config/ConfigMock.hpp"
 #include <iostream>
 
 // Démo : fait EXACTEMENT ce que tes potes feront -> CONSOMMER le Config via les

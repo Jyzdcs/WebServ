@@ -1,4 +1,4 @@
-#include "ConfigMock.hpp"
+#include "config/ConfigMock.hpp"
 
 // Ce mock reproduit EN DUR un fichier .conf (aucun fichier lu, aucun parsing).
 // Quand le vrai parser existera, c'est LUI qui produira ce Config en lisant un

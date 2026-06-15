@@ -1,4 +1,4 @@
-#include "LocationConfig.hpp"
+#include "config/LocationConfig.hpp"
 
 // _autoindex (bool) initialisé à false : un bool non initialisé a une valeur indéterminée.
 LocationConfig::LocationConfig() : _autoindex(false) {}
