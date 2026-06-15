@@ -1,7 +1,5 @@
 # Webserv — Checklist complète du projet
 
-> Copier-coller dans Discord. Cocher au fur et à mesure. Chaque grosse partie est assignée à un membre de la team (à adapter).
-
 ---
 
 ## 🟦 0. Setup du repo (toute la team — à faire en premier, ensemble)
@@ -14,17 +12,19 @@
 - [ ] Créer `.gitignore` (`*.o`, le binaire `webserv`, fichiers macOS `.DS_Store`)
 - [ ] Créer les branches : `feature/core-server`, `feature/http-layer`, `feature/config-parsing`
 - [ ] Définir et écrire le contrat d'interface `HttpDispatcher.hpp` (signature commune entre Core Server et HTTP Layer)
-- [ ] Créer `README.md` avec la première ligne italique obligatoire : *This project has been created as part of the 42 curriculum by ...*
+- [ ] Créer `README.md` avec la première ligne italique obligatoire : _This project has been created as part of the 42 curriculum by ..._
 
 ---
 
 ## 🟩 1. Module Config Parsing
 
 ### 1.1 — Structures de données
+
 - [ ] `ServerConfig.hpp` : host, port, server_name, error_pages, client_max_body_size, routes
 - [ ] `RouteConfig.hpp` : path, méthodes autorisées, root, index, autoindex (listing), redirection, upload_enabled + upload_dir, cgi_extension + cgi_path
 
 ### 1.2 — ConfigParser
+
 - [ ] Ouvrir et lire le fichier de config passé en argument
 - [ ] Gérer le cas "pas d'argument" → chemin par défaut (`config/default.conf`)
 - [ ] Tokeniser le fichier (gérer commentaires `#`, espaces, retours à la ligne)
@@ -34,6 +34,7 @@
 - [ ] Remplir `ServerConfig` et `RouteConfig` à partir des tokens
 
 ### 1.3 — ConfigValidator
+
 - [ ] Vérifier que chaque port est un entier valide (1–65535)
 - [ ] Vérifier qu'il n'y a pas deux `server` sur le même host:port
 - [ ] Vérifier que les méthodes listées sont parmi GET/POST/DELETE (rejeter le reste ou logguer)
@@ -43,6 +44,7 @@
 - [ ] Le programme refuse de démarrer (message clair, pas de crash) si la config est invalide
 
 ### 1.4 — Fichiers de configuration de test
+
 - [ ] `config/default.conf` — config minimale qui marche out-of-the-box
 - [ ] `config/multi_port.conf` — plusieurs server blocks sur ports différents
 - [ ] `config/cgi.conf` — config avec route CGI activée
@@ -50,6 +52,7 @@
 - [ ] `config/invalid.conf` — config volontairement cassée pour tester la validation
 
 ### 1.5 — Tests
+
 - [ ] `tests/test_config.cpp` : parsing simple passe
 - [ ] Test : config invalide rejetée sans crash
 - [ ] Test : multi-port bien reconnu (2+ ServerConfig en sortie)
@@ -59,6 +62,7 @@
 ## 🟪 2. Module Core Server (event loop)
 
 ### 2.1 — PollManager
+
 - [ ] `addFd(fd, events)`
 - [ ] `removeFd(fd)`
 - [ ] `updateEvents(fd, events)`
@@ -70,7 +74,8 @@
 - [ ] Test isolé : ajouter `stdin` (fd 0), taper au clavier, vérifier `isReadable(0)`
 
 ### 2.2 — Socket
-- [ ] Constructeur : `socket()` 
+
+- [ ] Constructeur : `socket()`
 - [ ] `setsockopt(SO_REUSEADDR)`
 - [ ] Passage en non-bloquant (`fcntl` + `O_NONBLOCK`)
 - [ ] `bind()` sur host:port
@@ -82,6 +87,7 @@
 - [ ] Test : `./webserv` démarre et écoute (vérifiable avec `lsof -i :8080` ou `netstat`)
 
 ### 2.3 — Client
+
 - [ ] Constructeur (fd, server_port)
 - [ ] `getFd()`
 - [ ] `receiveData()` — read() + accumulation dans read_buffer
@@ -97,6 +103,7 @@
 - [ ] Destructeur (pas de close() ici si géré par Server::closeClient)
 
 ### 2.4 — Server (boucle principale)
+
 - [ ] `addServerConfig()` — crée les `Socket` correspondants, les ajoute au PollManager (POLLIN)
 - [ ] `run()` : boucle infinie avec `poll_manager.poll(timeout)`
 - [ ] Distinguer "fd = socket d'écoute" vs "fd = client existant"
@@ -111,6 +118,7 @@
 - [ ] **Vérifier : un seul poll() pour tout le programme (listen + clients + CGI pipes)**
 
 ### 2.5 — Tests Core Server
+
 - [ ] Test manuel telnet : connexion acceptée, log affiché
 - [ ] Test manuel telnet : déconnexion détectée proprement (pas de crash)
 - [ ] Test manuel telnet : requête envoyée en plusieurs morceaux → bien accumulée
@@ -123,11 +131,13 @@
 ## 🟧 3. Module HTTP Layer
 
 ### 3.1 — Structures
+
 - [ ] `HttpRequest.hpp` : method, path, version, headers (map), body, query_string
 - [ ] `HttpResponse.hpp` : status_code, status_message, headers (map), body
 - [ ] `HttpStatus.hpp` : enum/constantes pour tous les codes utilisés (200, 201, 204, 301, 400, 403, 404, 405, 411, 413, 500, 501, 505...)
 
 ### 3.2 — RequestParser
+
 - [ ] Parser la status line (méthode, path, version)
 - [ ] Parser les headers (map clé/valeur, gérer casse insensible)
 - [ ] Détecter présence de `\r\n\r\n` (fin des headers)
@@ -139,6 +149,7 @@
 - [ ] `isComplete(raw_buffer)` — fonction réutilisable par `Client::isRequestComplete()`
 
 ### 3.3 — Router
+
 - [ ] Recevoir `HttpRequest.path` + liste de `RouteConfig`
 - [ ] Matcher le préfixe le plus long (`/kapouet/pouic` → route `/kapouet` si elle existe)
 - [ ] Retourner 404 si aucune route ne matche (ou fallback sur `/`)
@@ -147,6 +158,7 @@
 - [ ] Gérer la redirection HTTP (301/302) si configurée sur la route
 
 ### 3.4 — MethodHandler — GET
+
 - [ ] Si le chemin est un fichier → le lire et le servir
 - [ ] Si le chemin est un dossier ET qu'un `index` est configuré → servir ce fichier
 - [ ] Si le chemin est un dossier ET `autoindex on` → générer un listing HTML du dossier
@@ -155,23 +167,27 @@
 - [ ] Permissions insuffisantes → 403
 
 ### 3.5 — MethodHandler — POST
+
 - [ ] Vérifier `Content-Length` <= `client_max_body_size` → sinon 413 Payload Too Large
 - [ ] Si route a `upload_enabled` → écrire le body dans `upload_dir` avec un nom de fichier unique
 - [ ] Répondre 200/201 avec confirmation
 - [ ] Si POST sans upload configuré → comportement à définir (CGI ou 403)
 
 ### 3.6 — MethodHandler — DELETE
+
 - [ ] Vérifier que le fichier existe → sinon 404
 - [ ] Vérifier les permissions → sinon 403
 - [ ] Supprimer le fichier (`remove()` / `unlink`)
 - [ ] Répondre 200 ou 204 selon convention choisie
 
 ### 3.7 — StaticFileServer
+
 - [ ] `open()` + `read()` du fichier (rappel : pas besoin de poll() pour les fichiers disque)
 - [ ] Détection du MIME type selon l'extension (au moins : html, css, js, png, jpg, gif, txt, pdf)
 - [ ] Construire `Content-Type` et `Content-Length` corrects
 
 ### 3.8 — ResponseBuilder
+
 - [ ] Construire la status line (`HTTP/1.1 <code> <message>`)
 - [ ] Ajouter les headers obligatoires : `Content-Type`, `Content-Length`, `Connection`
 - [ ] Gérer `Connection: keep-alive` vs `Connection: close` selon la requête
@@ -179,6 +195,7 @@
 - [ ] Fonction pour générer une réponse d'erreur (status code → page HTML correspondante)
 
 ### 3.9 — Pages d'erreur par défaut
+
 - [ ] `www/errors/400.html`
 - [ ] `www/errors/403.html`
 - [ ] `www/errors/404.html`
@@ -188,6 +205,7 @@
 - [ ] Utiliser la page custom de la config si elle existe, sinon la page par défaut
 
 ### 3.10 — CgiHandler
+
 - [ ] Détecter si la route demandée correspond à une extension CGI (ex: `.py`, `.php`)
 - [ ] Créer `pipe_in` et `pipe_out`
 - [ ] `fork()`
@@ -205,12 +223,14 @@
 - [ ] Tester avec au moins un langage (Python ou PHP-CGI)
 
 ### 3.11 — HttpDispatcher (point d'entrée unique)
+
 - [ ] Définir la signature exacte (input: read_buffer + ServerConfig, output: std::string réponse complète)
 - [ ] Orchestrer : RequestParser → Router → MethodHandler → ResponseBuilder
 - [ ] Gérer le cas CGI (délégation à CgiHandler, retour asynchrone via PollManager)
 - [ ] Capturer toute exception interne → réponse 500 (jamais de crash qui remonte au Server)
 
 ### 3.12 — Tests HTTP Layer
+
 - [ ] `tests/test_request_parser.cpp` : GET simple, POST avec body, requête incomplète
 - [ ] `tests/test_router.cpp` : matching de préfixes, méthode non autorisée → 405
 - [ ] Test manuel : GET sur fichier existant → 200 + bon contenu
@@ -254,7 +274,7 @@
 
 ## 🟫 6. README & documentation
 
-- [ ] Première ligne italique : *This project has been created as part of the 42 curriculum by ...*
+- [ ] Première ligne italique : _This project has been created as part of the 42 curriculum by ..._
 - [ ] Section "Description" (objectif, vue d'ensemble)
 - [ ] Section "Instructions" (compilation, lancement, arguments)
 - [ ] Section "Resources" (RFC, docs, tutos utilisés + description de l'usage de l'IA, pour quelles tâches)
@@ -275,10 +295,10 @@
 
 ## 📊 Suivi d'avancement (à mettre à jour chaque semaine)
 
-| Module | % complété | Bloquants actuels |
-|---|---|---|
-| Config Parsing | __% | |
-| Core Server | __% | |
-| HTTP Layer | __% | |
-| Tests & stress | __% | |
-| README | __% | |
+| Module         | % complété | Bloquants actuels |
+| -------------- | ---------- | ----------------- |
+| Config Parsing | \_\_%      |                   |
+| Core Server    | \_\_%      |                   |
+| HTTP Layer     | \_\_%      |                   |
+| Tests & stress | \_\_%      |                   |
+| README         | \_\_%      |                   |
