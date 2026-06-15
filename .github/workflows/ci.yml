@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make
+
+      - name: Run tests
+        run: |
+          # Auto-discovers all test scripts — no workflow change needed when adding a test.
+          # Priority: tests/run_all.sh if it exists, otherwise find all .sh/.py in tests/
+          if [ -f tests/run_all.sh ]; then
+            bash tests/run_all.sh
+          else
+            scripts=$(find tests/ \( -name "*.sh" -o -name "*.py" \) 2>/dev/null | sort)
+            if [ -z "$scripts" ]; then
+              echo "No tests found — skipping."
+              exit 0
+            fi
+            failed=0
+            echo "$scripts" | while read -r f; do
+              echo "--- Running $f ---"
+              bash "$f" || failed=1
+            done
+            exit $failed
+          fi

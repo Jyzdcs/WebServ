@@ -16,6 +16,21 @@ then produce a structured review report before the PR is created.
 
 ## Steps
 
+### 0. Run the tests first
+
+**Before any review, run the test suite.** Follow the `run-tests` skill (`.agents/skills/run-tests/SKILL.md`):
+
+```bash
+make 2>&1 | tail -5
+bash tests/run_all.sh 2>&1   # or: find tests/ -name "*.sh" | sort | xargs -I{} bash {}
+```
+
+- If **build fails** → stop here. Report the build error. Do not proceed with the review.
+- If **tests fail** → stop here. Report which tests failed. The PR must not be opened until they pass.
+- If **no tests exist yet** → note it in the report and continue.
+
+---
+
 ### 1. Read the reference documents
 
 Read both files:
@@ -108,12 +123,19 @@ Optional observations: memory management, error handling, C++98 compliance, edge
 
 ---
 
+### 🧪 Tests
+
+- Build: ✅ OK / 🚨 Failed
+- Tests: ✅ X passed / 🚨 X failed / ⚪ No tests yet
+
+---
+
 ### 🔁 Verdict
 
 One of:
-- **✅ Ready to PR** — no critical issues found
+- **✅ Ready to PR** — build OK, tests pass, no critical issues
 - **⚠️ Minor issues — review recommended before merge**
-- **🚨 Do NOT open PR — critical violation found: [reason]**
+- **🚨 Do NOT open PR — [build failed / tests failed / critical violation: reason]**
 
 ---
 

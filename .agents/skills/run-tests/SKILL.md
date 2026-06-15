@@ -11,117 +11,101 @@ Or when invoked after implementing a feature to verify nothing is broken.
 
 ## Goal
 
-1. Run the existing tests relevant to the current module or all modules
-2. Decide if the current changes warrant adding a new test
-3. If yes, add a minimal integration test — not a unit test
+1. Run all existing tests found in `tests/`
+2. Decide if the current changes warrant adding a **new** test
+3. If yes, write a minimal integration test and add it to the right place
 
 ---
 
-## Step 1 — Detect which module is being worked on
+## Step 1 — Run existing tests
 
-Run:
+Look for test scripts in `tests/`:
+
+```bash
+find tests/ -name "*.sh" -o -name "*.py" | sort
+```
+
+Run each one and collect results. If there are no tests yet, say so clearly and skip to Step 2.
+
+If a `tests/run_all.sh` exists:
+```bash
+bash tests/run_all.sh
+```
+
+Otherwise run individual scripts directly.
+
+Report: how many passed, how many failed, which ones failed.
+
+---
+
+## Step 2 — Detect which module is being worked on
+
 ```bash
 git diff --name-only origin/main...HEAD
 ```
 
 Map changed paths to modules:
-- `src/config/` or `include/config/` → module **config** → run `tests/config/`
-- `src/server/` or `include/server/` → module **server** → run `tests/server/`
-- `src/http/` or `include/http/` → module **http** → run `tests/http/`
-- Multiple modules or unclear → run all: `tests/run_all.sh`
-
----
-
-## Step 2 — Run the tests
-
-```bash
-# All modules
-bash tests/run_all.sh
-
-# Or a specific module
-bash tests/run_all.sh config
-bash tests/run_all.sh server
-bash tests/run_all.sh http
-```
-
-If the binary doesn't exist yet:
-```bash
-make
-```
-
-Report the output clearly: how many passed, how many failed, which ones failed.
+- `src/config/` or `include/config/` → module **config**
+- `src/server/` or `include/server/` → module **server**
+- `src/http/` or `include/http/` → module **http**
 
 ---
 
 ## Step 3 — Decide if a new test is needed
 
-### Add a test if the PR introduces one of these:
+### Add a test if the PR introduces one of these major features:
 
-| Feature | Module | Test type |
-|---------|--------|-----------|
-| New config directive (new keyword parsed) | config | Start server with that config, check it works |
-| Multi-port or multi-server support | config | Two ports both respond |
+| Feature | Module | What to test |
+|---------|--------|--------------|
+| New config directive | config | Start server with that config, verify it starts |
+| Multi-port / multi-server | config | Both ports respond |
 | New HTTP method (GET/POST/DELETE) | http | Send that method, check status code |
-| File upload | http | POST a file, check it exists on disk |
+| File upload | http | POST a file, check it appears on disk |
 | Directory listing (autoindex) | http | GET a directory, check HTML response |
-| HTTP redirect | http | GET redirected URL, check 301/302 + Location header |
-| CGI execution | http | GET/POST a .py or .php script, check 200 |
+| HTTP redirect | http | Check 301/302 + Location header |
+| CGI execution | http | GET/POST a script, check 200 + output |
 | Body size limit | http | POST oversized body, check 413 |
-| Client timeout | server | Open connection, wait, check it gets closed |
-| Simultaneous connections | server | Two concurrent requests, both succeed |
+| Client timeout | server | Open connection, wait, check it closes |
+| Simultaneous connections | server | Two concurrent requests both succeed |
 
 ### Do NOT add a test for:
 
 - Internal refactoring (renamed a class, split a function)
-- Adding a helper method that's not directly callable via HTTP
-- Changing a data structure internally
-- Fixing formatting or comments
+- Helper methods not directly observable from outside
+- Data structure changes with no behaviour impact
 - Anything already covered by an existing test
 
 ---
 
 ## Step 4 — Write the test (if needed)
 
-Add the test to the correct file:
-- Config feature → `tests/config/test_config.sh`
-- Server feature → `tests/server/test_server.sh`
-- HTTP feature → `tests/http/test_http.sh`
+Decide where to put it:
+- Config feature → `tests/config/`
+- Server feature → `tests/server/`
+- HTTP feature → `tests/http/`
 
-### Test template
+Write a **short shell or Python script** that:
+1. Starts the server with a config file
+2. Sends an HTTP request (with `curl`)
+3. Asserts the response (status code, body, or file on disk)
+4. Kills the server
 
-```bash
-# --- Feature name ---
-start_server "$CONFIGS/relevant.conf"
-status=$(http_status -X METHOD "http://localhost:PORT/path")
-assert_eq "description of what we're testing: expected code" "EXPECTED" "$status"
-stop_server
-```
+One test = one observable behaviour. Test the **outcome**, never internal state.
 
-Keep it short. One test = one observable behaviour.
-Test the **outcome** (status code, response body, file on disk), never internal state.
+Ask the user before writing the file.
 
 ---
 
 ## Step 5 — Report
 
-Output:
 ```
-Tests run: X
+Tests found: X scripts
 Passed: X
 Failed: X
 
 [if new test added]
-Added: tests/http/test_http.sh — "POST upload: file created on disk"
+→ Added: tests/http/test_upload.sh — "POST upload: file created on disk"
 
 [if nothing added]
-No new test added (refactoring / already covered).
+→ No new test needed (refactoring / already covered / no major feature).
 ```
-
----
-
-## Notes
-
-- `tests/run_all.sh` accepts an optional module argument: `config`, `server`, `http`
-- `tests/helpers.sh` provides: `start_server`, `stop_server`, `assert_eq`, `assert_contains`, `http_status`, `http_body`
-- The server binary is `./webserv` — build it with `make` if missing
-- Tests skip gracefully if the binary doesn't exist yet (`[SKIP]` output)
