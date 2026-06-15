@@ -1,133 +1,133 @@
-# WebServ — Project Checklist
+# WebServ — Checklist du projet
 
-High-level tracker. Each module defines **what** it must deliver, not how it implements it.
-Implementation choices belong to the person handling the module.
+Suivi en grandes lignes. Chaque module définit **ce qu'il doit livrer**, pas comment l'implémenter.
+Les choix d'implémentation appartiennent à la personne qui prend en charge le module.
 
-For detailed subject requirements and evaluation criteria, see `docs/subject.md` and `docs/evaluation.md`.
+Pour les exigences détaillées du sujet et la grille d'évaluation, voir `docs/subject.md` et `docs/evaluation.md`.
 
 ---
 
 ## Coordination
 
-| Module | Owner | Status |
-|--------|-------|--------|
-| Config Parsing | — | 🔴 Not started |
-| Core Server (event loop) | — | 🔴 Not started |
-| HTTP Layer | — | 🔴 Not started |
+| Module | Responsable | Statut |
+|--------|-------------|--------|
+| Config Parsing | — | 🔴 Pas commencé |
+| Core Server (boucle d'événements) | — | 🔴 Pas commencé |
+| HTTP Layer | — | 🔴 Pas commencé |
 
-**Integration checkpoints** are moments where the three modules must align.
-Schedule them together before starting the next phase.
-
----
-
-## Phase 0 — Shared setup (team, before splitting)
-
-- [ ] Makefile compiles cleanly with `-Wall -Wextra -Werror -std=c++98`, no unnecessary relink
-- [ ] `.gitignore` in place
-- [ ] Define the **interface contract** between Core Server and HTTP Layer:
-  what data the server passes to the HTTP layer, and what it gets back
-  *(agree on this together — it's the only shared API boundary)*
-- [ ] `README.md` with the mandatory first line
+Les **points d'intégration** sont les moments où les trois modules doivent s'aligner.
+Les planifier ensemble avant de passer à la phase suivante.
 
 ---
 
-## Phase 1 — Module: Config Parsing
+## Phase 0 — Setup partagé (toute l'équipe, avant de se répartir)
 
-**Delivers:** a parsed, validated representation of the configuration file that the rest of the program can query.
-
-- [ ] Read a config file passed as argument, or fall back to a default path
-- [ ] Support multiple server blocks with different host:port pairs
-- [ ] Support per-route configuration (methods, root dir, index, listing, redirects, upload, CGI)
-- [ ] Validate the config — reject invalid configurations with a clear error, no crash
-- [ ] Duplicate host:port → refuse to start
-- [ ] Provide representative config files for testing (valid, multi-port, CGI, errors, invalid)
+- [ ] Le Makefile compile proprement avec `-Wall -Wextra -Werror -std=c++98`, sans relink inutile
+- [ ] `.gitignore` en place
+- [ ] Définir le **contrat d'interface** entre Core Server et HTTP Layer :
+  quelles données le serveur passe à la couche HTTP, et ce qu'il reçoit en retour
+  *(à définir ensemble — c'est la seule frontière d'API partagée)*
+- [ ] `README.md` avec la première ligne obligatoire
 
 ---
 
-## Phase 2 — Module: Core Server
+## Phase 1 — Module : Config Parsing
 
-**Delivers:** a non-blocking event loop that accepts connections, reads requests, and writes responses — all going through a single poll() call.
+**Livraison :** une représentation parsée et validée du fichier de configuration, interrogeable par le reste du programme.
 
-- [ ] Single `poll()` (or equivalent) for all I/O: listening sockets, client sockets, CGI pipes
-- [ ] `poll()` monitors read AND write at the same time
-- [ ] No read/write on any socket without going through poll() first
-- [ ] No use of `errno` after read/recv/write/send to adjust behaviour
-- [ ] Accept new client connections
-- [ ] Read incoming data and detect when a request is complete
-- [ ] Delegate complete requests to the HTTP layer (via the agreed interface)
-- [ ] Write responses back to clients, handling partial writes
-- [ ] Detect and clean up disconnected clients
-- [ ] Timeout idle connections
-- [ ] Graceful shutdown on SIGINT
+- [ ] Lire un fichier de config passé en argument, ou utiliser un chemin par défaut
+- [ ] Supporter plusieurs blocs server avec des paires host:port différentes
+- [ ] Supporter la configuration par route (méthodes, répertoire racine, index, listing, redirections, upload, CGI)
+- [ ] Valider la config — rejeter les configurations invalides avec un message clair, sans crash
+- [ ] host:port dupliqué → refus de démarrer
+- [ ] Fournir des fichiers de config représentatifs pour les tests (valide, multi-port, CGI, erreurs, invalide)
 
 ---
 
-## Phase 3 — Module: HTTP Layer
+## Phase 2 — Module : Core Server
 
-**Delivers:** given a raw request buffer and a server config, return a complete HTTP response.
+**Livraison :** une boucle d'événements non-bloquante qui accepte les connexions, lit les requêtes et écrit les réponses — tout en passant par un seul appel à poll().
 
-- [ ] Parse the request line, headers, and body
-- [ ] Handle `Transfer-Encoding: chunked` (un-chunk before processing)
-- [ ] Route the request to the correct location by longest-prefix matching
-- [ ] Return 405 if the method is not allowed for the route
-- [ ] Handle HTTP redirections
-- [ ] GET: serve static files, directory index, or directory listing
-- [ ] POST: enforce body size limit, handle file uploads
-- [ ] DELETE: remove the target file
-- [ ] Unknown/malformed requests → appropriate error response, no crash
-- [ ] Accurate HTTP status codes throughout
-- [ ] Default error pages for common codes (400, 403, 404, 405, 413, 500)
-- [ ] Custom error pages from config when available
-- [ ] CGI: execute scripts, pass the correct environment, handle GET and POST, manage timeouts, no crash on faulty scripts
-- [ ] CGI runs only via `fork()` — no other use of `fork()`
+- [ ] Un seul `poll()` (ou équivalent) pour tous les I/O : sockets d'écoute, sockets clients, pipes CGI
+- [ ] `poll()` surveille la lecture ET l'écriture simultanément
+- [ ] Aucun read/write sur un socket sans passer par poll() au préalable
+- [ ] Pas d'utilisation d'`errno` après read/recv/write/send pour adapter le comportement
+- [ ] Accepter les nouvelles connexions clients
+- [ ] Lire les données entrantes et détecter quand une requête est complète
+- [ ] Déléguer les requêtes complètes à la couche HTTP (via l'interface définie)
+- [ ] Écrire les réponses aux clients en gérant les écritures partielles
+- [ ] Détecter et nettoyer les clients déconnectés
+- [ ] Timeout sur les connexions inactives
+- [ ] Arrêt propre sur SIGINT
 
 ---
 
-## Integration checkpoint 1 — After phases 1–3
+## Phase 3 — Module : HTTP Layer
 
-Meet as a team and verify:
+**Livraison :** à partir d'un buffer de requête brut et d'une config serveur, retourner une réponse HTTP complète.
 
-- [ ] Server starts with a config file and listens on the expected ports
-- [ ] A GET request from a browser returns a valid response
-- [ ] Multi-port setup works — different content per port
-- [ ] CGI executes correctly end-to-end
-- [ ] No direct push to main — everything via PR + pr-review skill
+- [ ] Parser la ligne de requête, les headers et le body
+- [ ] Gérer `Transfer-Encoding: chunked` (dé-chunker avant traitement)
+- [ ] Router la requête vers la bonne location par correspondance du préfixe le plus long
+- [ ] Retourner 405 si la méthode n'est pas autorisée pour la route
+- [ ] Gérer les redirections HTTP
+- [ ] GET : servir les fichiers statiques, l'index d'un répertoire, ou le listing de répertoire
+- [ ] POST : appliquer la limite de taille du body, gérer l'upload de fichiers
+- [ ] DELETE : supprimer le fichier cible
+- [ ] Requêtes inconnues/malformées → réponse d'erreur appropriée, sans crash
+- [ ] Codes de statut HTTP corrects partout
+- [ ] Pages d'erreur par défaut pour les codes courants (400, 403, 404, 405, 413, 500)
+- [ ] Pages d'erreur custom depuis la config si disponibles
+- [ ] CGI : exécuter les scripts, passer le bon environnement, gérer GET et POST, gérer les timeouts, pas de crash sur les scripts défaillants
+- [ ] CGI uniquement via `fork()` — aucune autre utilisation de `fork()`
 
 ---
 
-## Phase 4 — Robustness & compliance
+## Point d'intégration 1 — Après les phases 1–3
 
-- [ ] No crash under any circumstance (malformed requests, huge headers, abrupt disconnects)
-- [ ] Stress test with siege — availability ≥ 99.5% on a simple GET
-- [ ] No memory leaks under sustained load
-- [ ] No hanging connections
-- [ ] Behaviour compared with NGINX on key cases (headers, error responses)
-- [ ] Test with a real browser (check network panel)
-- [ ] `fcntl()` used only with `F_SETFL`, `O_NONBLOCK`, `FD_CLOEXEC` (macOS)
-- [ ] No external libraries, no C++11+
+Se réunir en équipe et vérifier :
+
+- [ ] Le serveur démarre avec un fichier de config et écoute sur les ports attendus
+- [ ] Une requête GET depuis un navigateur retourne une réponse valide
+- [ ] Le multi-port fonctionne — contenu différent par port
+- [ ] Le CGI s'exécute correctement de bout en bout
+- [ ] Aucun push direct sur main — tout passe par PR + skill pr-review
+
+---
+
+## Phase 4 — Robustesse & conformité
+
+- [ ] Aucun crash en toutes circonstances (requêtes malformées, headers énormes, déconnexions brutales)
+- [ ] Stress test avec siege — disponibilité ≥ 99,5% sur un GET simple
+- [ ] Pas de fuite mémoire sous charge soutenue
+- [ ] Pas de connexions pendantes
+- [ ] Comportement comparé avec NGINX sur les cas clés (headers, réponses d'erreur)
+- [ ] Testé avec un vrai navigateur (vérifier l'onglet réseau)
+- [ ] `fcntl()` utilisé uniquement avec `F_SETFL`, `O_NONBLOCK`, `FD_CLOEXEC` (macOS)
+- [ ] Pas de librairie externe, pas de C++11+
 
 ---
 
 ## Phase 5 — Documentation
 
-- [ ] README complete (see `docs/subject.md` §V for required sections)
-- [ ] Config files and default pages included for the evaluation demo
-- [ ] All evaluation scenarios can be demonstrated (see `docs/evaluation.md`)
+- [ ] README complet (voir `docs/subject.md` §V pour les sections obligatoires)
+- [ ] Fichiers de config et pages par défaut inclus pour la démo d'évaluation
+- [ ] Tous les scénarios d'évaluation peuvent être démontrés (voir `docs/evaluation.md`)
 
 ---
 
-## Bonus (only if mandatory is fully complete and stable)
+## Bonus (uniquement si le mandatory est entièrement complet et stable)
 
-- [ ] Cookie and session management
-- [ ] Multiple CGI types
+- [ ] Gestion des cookies et des sessions
+- [ ] Plusieurs types de CGI
 
 ---
 
-## Weekly sync
+## Sync hebdomadaire
 
-| Week | Milestone |
-|------|-----------|
-| — | Phases 0–1 done, interface contract agreed |
-| — | Phases 2–3 done, integration checkpoint 1 passed |
-| — | Phase 4 done, stress test passing |
-| — | Phase 5 done, ready for evaluation |
+| Semaine | Jalon |
+|---------|-------|
+| — | Phases 0–1 terminées, contrat d'interface défini |
+| — | Phases 2–3 terminées, point d'intégration 1 validé |
+| — | Phase 4 terminée, stress test passant |
+| — | Phase 5 terminée, prêt pour l'évaluation |
