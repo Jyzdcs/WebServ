@@ -55,9 +55,3 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& req, const LocationCon
     return buildError(501, "Not Implemented");
 }
 
-HttpResponse MethodHandler::handleDelete(const HttpRequest& req, const LocationConfig& loc)
-{
-    (void)req;
-    (void)loc;
-    return buildError(501, "Not Implemented");
-}
