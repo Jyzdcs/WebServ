@@ -13,7 +13,7 @@ jobs:
 
       - name: Build
         run: |
-          if [ ! -f main.cpp ]; then
+          if [ ! -f main.cpp ] || [ ! -s main.cpp ]; then
             echo "No main.cpp yet — skipping build."
             exit 0
           fi
