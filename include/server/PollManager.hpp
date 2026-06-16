@@ -30,10 +30,6 @@ class PollManager
 		*/
 		int findIndex(int fd) const;
 
-		// Non copyable : PollManager possède une ressource unique (la liste fds)
-		PollManager(const PollManager& other);
-		PollManager& operator=(const PollManager& other);
-
 	public:
 		PollManager();
 		~PollManager();
@@ -73,7 +69,7 @@ class PollManager
 		** Retourne : nombre de fds prêts (>= 0), ou -1 en cas d'erreur
 		** (errno EINTR à gérer : ne pas crasher, juste re-looper).
 		*/
-		int poll(int timeout_ms);
+		int pollEngine(int timeout_ms);
 
 		/*
 		** Goal: Après un poll() réussi, indique si ce fd est prêt en lecture.

@@ -5,13 +5,6 @@ PollManager::PollManager() {
 	std::cout << "[PollManager] ctor called\n";
 };
 
-PollManager::PollManager(const PollManager& other) {
-};
-
-PollManager& PollManager::operator=(const PollManager& other) {
-	// return *this;
-};
-
 PollManager::~PollManager() {
 	std::cout << "[PollManager] dtor called\n";
 };
@@ -48,21 +41,43 @@ void PollManager::removeFd(int fd) {
 };
 
 void PollManager::updateEvents(int fd, short events) {
-
+	int idx = findIndex(fd);
+	_fds[idx].events = events;
 };
 
-int PollManager::poll(int timeout_ms) {
-
+int PollManager::pollEngine(int timeout_ms) {
+	int poll_count = poll(&_fds[0], _fds.size(), timeout_ms);
+	
+	return poll_count;
 };
 
 bool PollManager::isReadable(int fd) const {
+	int idx = findIndex(fd);
 
+	if (_fds[idx].revents & POLLIN) {
+		return true;
+	}
+	return false;
 };
 
 bool PollManager::isWritable(int fd) const {
+	int idx = findIndex(fd);
 
+	if (_fds[idx].revents & POLLOUT) {
+		return true;
+	}
+	return false;
 };
 
 bool PollManager::hasError(int fd) const {
+	int idx = findIndex(fd);
+	
+	if (_fds[idx].revents & (POLLHUP | POLLNVAL | POLLERR)) {
+		return true;
+	}
+	return false;
+};
 
+const std::vector<struct pollfd>& PollManager::getFds() const {
+	return _fds;
 };
