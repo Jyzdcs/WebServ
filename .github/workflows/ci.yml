@@ -13,6 +13,10 @@ jobs:
 
       - name: Build
         run: |
+          if [ ! -f main.cpp ]; then
+            echo "No main.cpp yet — skipping build."
+            exit 0
+          fi
           sources=$(find src/ -name "*.cpp" 2>/dev/null)
           if [ -z "$sources" ]; then
             echo "No source files yet — skipping build."
