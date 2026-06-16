@@ -1,4 +1,4 @@
-#include "config/Config.hpp"
+#include "../../include/config/Config.hpp"
 
 // Constructeur vide : _servers (un std::vector) se construit tout seul, vide.
 Config::Config() {}
