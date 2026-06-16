@@ -27,6 +27,7 @@ send(fd, raw.c_str(), raw.size(), 0);
 ```
 
 > **Important** : accumuler les données du socket jusqu'à trouver `\r\n\r\n` avant d'appeler `parse()`.
+> Le calcul de la taille du body (`Content-Length`) et la gestion des bytes incomplets sont à gérer côté core server — le parser suppose que la requête complète est déjà dans le buffer.
 
 ---
 
