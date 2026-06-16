@@ -1,4 +1,4 @@
-#include "config/ConfigMock.hpp"
+#include "../../include/config/ConfigMock.hpp"
 #include <iostream>
 
 // Démonstration de consommation : parcourt le Config via les getters, comme le
