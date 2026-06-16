@@ -29,6 +29,21 @@ send(fd, raw.c_str(), raw.size(), 0);
 > **Important** : accumuler les données du socket jusqu'à trouver `\r\n\r\n` avant d'appeler `parse()`.
 > Le calcul de la taille du body (`Content-Length`) et la gestion des bytes incomplets sont à gérer côté core server — le parser suppose que la requête complète est déjà dans le buffer.
 > Si `req.method` est vide après `parse()`, c'est au core server de retourner 400 au client — le HTTP layer ne throw pas d'exception.
+>
+> ```cpp
+> if (req.method.empty())
+> {
+>     HttpResponse err;
+>     err.status_code = 400;
+>     err.status_msg  = "Bad Request";
+>     err.body        = "<html><body><h1>Bad Request</h1></body></html>";
+>     err.headers["Content-Type"]   = "text/html";
+>     err.headers["Content-Length"] = "46";
+>     ResponseBuilder builder;
+>     std::string raw = builder.build(err);
+>     send(fd, raw.c_str(), raw.size(), 0);
+> }
+> ```
 
 ---
 
