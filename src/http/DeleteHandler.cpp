@@ -6,6 +6,9 @@ HttpResponse MethodHandler::handleDelete(const HttpRequest& req, const LocationC
 {
     std::string path = loc.getRoot() + req.uri;
 
+    if (req.uri.find("..") != std::string::npos)
+        return buildError(400, "Bad Request");
+
     struct stat st;
     if (stat(path.c_str(), &st) == -1)
         return buildError(404, "Not Found");
