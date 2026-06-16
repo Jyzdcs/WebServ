@@ -48,10 +48,4 @@ HttpResponse MethodHandler::buildError(int code, const std::string& msg)
     return res;
 }
 
-HttpResponse MethodHandler::handlePost(const HttpRequest& req, const LocationConfig& loc)
-{
-    (void)req;
-    (void)loc;
-    return buildError(501, "Not Implemented");
-}
 

@@ -97,6 +97,22 @@ int main()
         check("DELETE puis GET: fichier plus accessible (404)", res.status_code == 404);
     }
 
+    // ── CAS 6 : DELETE path traversal → 400 ────────────────────────
+    {
+        LocationConfig loc = makeLoc("/", "/tmp", "DELETE");
+        MethodHandler handler;
+        HttpResponse res = handler.handle(makeReq("DELETE", "/../etc/passwd"), loc, server);
+        check("DELETE path traversal: 400", res.status_code == 400);
+    }
+
+    // ── CAS 7 : DELETE path traversal embede → 400 ──────────────────
+    {
+        LocationConfig loc = makeLoc("/", "/tmp", "DELETE");
+        MethodHandler handler;
+        HttpResponse res = handler.handle(makeReq("DELETE", "/uploads/../secret.txt"), loc, server);
+        check("DELETE path traversal embede: 400", res.status_code == 400);
+    }
+
     std::cout << std::endl << passed << " passed, " << failed << " failed" << std::endl;
     return failed > 0 ? 1 : 0;
 }
