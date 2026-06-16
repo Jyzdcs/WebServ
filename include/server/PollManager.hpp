@@ -2,6 +2,7 @@
 #define POLLMANAGER_HPP
 
 #include <vector>
+#include <iostream>
 #include <poll.h>
 
 /*
@@ -36,6 +37,8 @@ class PollManager
 	public:
 		PollManager();
 		~PollManager();
+
+		int getSize() const;
 
 		/*
 		** Goal: Ajouter un fd à la liste surveillée par poll().
