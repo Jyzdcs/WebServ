@@ -20,6 +20,23 @@ jobs:
           fi
           make
 
+      - name: Run unit tests (C++)
+        run: |
+          cpp_tests=$(find tests/ -name "*.cpp" 2>/dev/null | sort)
+          if [ -z "$cpp_tests" ]; then
+            echo "No C++ unit tests found — skipping."
+            exit 0
+          fi
+          failed=0
+          for f in $cpp_tests; do
+            echo "--- Compiling $f ---"
+            bin=$(mktemp /tmp/test_XXXXXX)
+            c++ -Wall -Wextra -Werror -std=c++98 -I include "$f" $(find src/ -name "*.cpp") -o "$bin" || { failed=1; continue; }
+            echo "--- Running $f ---"
+            "$bin" || failed=1
+          done
+          exit $failed
+
       - name: Run tests
         run: |
           # Auto-discovers all test scripts — no workflow change needed when adding a test.
