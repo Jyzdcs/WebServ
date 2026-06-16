@@ -1,5 +1,613 @@
 <!DOCTYPE html>
-<html>
-<head><title>WebServ</title></head>
-<body><h1>Hello from WebServ!</h1></body>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebServ — Test Interface</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: oklch(0.98 0 0);
+      --surface: oklch(0.95 0 0);
+      --border: oklch(0.88 0 0);
+      --ink: oklch(0.10 0 0);
+      --muted: oklch(0.50 0 0);
+      --accent: oklch(0.10 0 0);
+      --green: oklch(0.42 0.10 152);
+      --red: oklch(0.45 0.12 22);
+      --yellow: oklch(0.48 0.10 75);
+      --radius: 6px;
+      --mono: "JetBrains Mono", monospace;
+      --sans: "Inter", sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ─────────────────────────────── */
+    .shell {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ────────────────────────────── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .logo { padding: 0 4px; }
+    .logo-name {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    .logo-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-top: 2px;
+    }
+
+    .nav-group { display: flex; flex-direction: column; gap: 2px; }
+    .nav-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0 8px;
+      margin-bottom: 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 8px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.15s, background 0.15s;
+      border: none;
+      background: none;
+      text-align: left;
+      width: 100%;
+    }
+    .nav-item:hover { background: var(--surface); color: var(--ink); }
+    .nav-item.active { background: var(--surface); color: var(--ink); }
+    .nav-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .nav-item.get .nav-dot  { background: oklch(0.65 0.10 152); }
+    .nav-item.post .nav-dot { background: oklch(0.65 0.10 75); }
+    .nav-item.del .nav-dot  { background: oklch(0.65 0.10 22); }
+
+    /* ── Main ───────────────────────────────── */
+    .main {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 57px;
+    }
+    .topbar-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .content {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Panels ─────────────────────────────── */
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: none;
+    }
+    .panel.active { display: block; }
+
+    .panel-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+    }
+    .method-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+    }
+    .method-badge.GET    { background: oklch(0.93 0.05 152); color: oklch(0.35 0.10 152); }
+    .method-badge.POST   { background: oklch(0.93 0.05 75);  color: oklch(0.38 0.10 75); }
+    .method-badge.DELETE { background: oklch(0.93 0.05 22);  color: oklch(0.38 0.10 22); }
+
+    .panel-desc {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .panel-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── Fields ─────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+    }
+    .field-row { display: flex; gap: 8px; }
+    input[type="text"], textarea {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: oklch(0.55 0 0);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: var(--mono);
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .file-label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .file-label:hover { border-color: oklch(0.65 0 0); }
+    .file-icon {
+      font-size: 13px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .file-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+      letter-spacing: 0.2px;
+    }
+    .btn-primary   { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .btn-primary:hover { background: oklch(0.25 0 0); border-color: oklch(0.25 0 0); }
+    .btn-danger    { background: transparent; color: oklch(0.38 0.10 22); border-color: oklch(0.80 0.05 22); }
+    .btn-danger:hover { background: oklch(0.93 0.05 22); }
+
+    /* ── Response ───────────────────────────── */
+    .response {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: none;
+    }
+    .response.visible { display: block; }
+
+    .response-header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+    }
+    .response-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .status-code {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+    .status-code.ok       { background: oklch(0.93 0.05 152); color: oklch(0.35 0.10 152); }
+    .status-code.err      { background: oklch(0.93 0.05 22);  color: oklch(0.38 0.10 22); }
+    .status-code.redirect { background: oklch(0.93 0.05 75);  color: oklch(0.38 0.10 75); }
+
+    .response-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      letter-spacing: 0.3px;
+    }
+    .tab-btn.active { color: var(--ink); border-bottom-color: var(--ink); }
+    .tab-btn:hover { color: var(--ink); }
+
+    .response-pane { display: none; }
+    .response-pane.active { display: block; }
+
+    .response-body {
+      padding: 16px 20px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      color: oklch(0.80 0 0);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .header-row {
+      display: flex;
+      gap: 0;
+      padding: 5px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-row:last-child { border-bottom: none; }
+    .header-key {
+      width: 200px;
+      flex-shrink: 0;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: oklch(0.55 0.08 250);
+      padding: 3px 0;
+    }
+    .header-val {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: oklch(0.75 0 0);
+      padding: 3px 0;
+    }
+
+    /* ── Loading ────────────────────────────── */
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--ink);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+    .spinner.active { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; opacity: 0.5; }
+      * { transition: none !important; }
+    }
+
+    /* ── Scrollbar ──────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-name">WebServ</div>
+      <div class="logo-sub">HTTP/1.1</div>
+    </div>
+
+    <nav class="nav-group">
+      <div class="nav-label">Requêtes</div>
+      <button class="nav-item get active" onclick="switchPanel('get', this)">
+        <span class="nav-dot"></span>GET
+      </button>
+      <button class="nav-item post" onclick="switchPanel('post-text', this)">
+        <span class="nav-dot"></span>POST — texte
+      </button>
+      <button class="nav-item post" onclick="switchPanel('post-file', this)">
+        <span class="nav-dot"></span>POST — fichier
+      </button>
+      <button class="nav-item del" onclick="switchPanel('delete', this)">
+        <span class="nav-dot"></span>DELETE
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title" id="panel-title">GET — Lire un fichier</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="spinner" id="spinner"></div>
+        <span class="badge" id="host-badge">localhost:8080</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- GET -->
+      <div class="panel active" id="panel-get">
+        <div class="panel-header">
+          <span class="method-badge GET">GET</span>
+          <span class="panel-desc">Lire un fichier statique depuis le serveur</span>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <div class="field-label">URI</div>
+            <div class="field-row">
+              <input type="text" id="get-uri" value="/index.html" placeholder="/chemin/fichier.html">
+              <button class="btn btn-primary" onclick="doGet()">Envoyer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POST texte -->
+      <div class="panel" id="panel-post-text">
+        <div class="panel-header">
+          <span class="method-badge POST">POST</span>
+          <span class="panel-desc">Envoyer du contenu texte vers upload_store</span>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <div class="field-label">URI</div>
+            <input type="text" id="post-uri" value="/uploads/test.txt" placeholder="/uploads/nom.txt">
+          </div>
+          <div class="field">
+            <div class="field-label">Body</div>
+            <div class="field-row">
+              <textarea id="post-body">Hello World!</textarea>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button class="btn btn-primary" onclick="doPost()">Envoyer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- POST fichier -->
+      <div class="panel" id="panel-post-file">
+        <div class="panel-header">
+          <span class="method-badge POST">POST</span>
+          <span class="panel-desc">Uploader un fichier depuis le disque</span>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <div class="field-label">Dossier de destination</div>
+            <input type="text" id="upload-uri" value="/uploads/" placeholder="/uploads/">
+          </div>
+          <div class="field">
+            <div class="field-label">Fichier</div>
+            <div class="field-row">
+              <label class="file-label" for="upload-file">
+                <span class="file-icon">↑</span>
+                <span class="file-name" id="file-name-display">Choisir un fichier...</span>
+              </label>
+              <input type="file" id="upload-file" onchange="updateFileName(this)">
+              <button class="btn btn-primary" onclick="doUpload()">Envoyer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DELETE -->
+      <div class="panel" id="panel-delete">
+        <div class="panel-header">
+          <span class="method-badge DELETE">DELETE</span>
+          <span class="panel-desc">Supprimer un fichier sur le serveur</span>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <div class="field-label">URI</div>
+            <div class="field-row">
+              <input type="text" id="delete-uri" value="/uploads/test.txt" placeholder="/chemin/fichier">
+              <button class="btn btn-danger" onclick="doDelete()">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response -->
+      <div class="response" id="response">
+        <div class="response-header">
+          <span class="response-label">Réponse</span>
+          <span class="status-code" id="resp-status"></span>
+        </div>
+        <div class="response-tabs">
+          <button class="tab-btn active" onclick="switchTab('body', this)">Body</button>
+          <button class="tab-btn" onclick="switchTab('headers', this)">Headers</button>
+        </div>
+        <div class="response-pane active" id="tab-body">
+          <div class="response-body" id="resp-body"></div>
+        </div>
+        <div class="response-pane" id="tab-headers">
+          <div id="resp-headers"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  var titles = {
+    'get': 'GET — Lire un fichier',
+    'post-text': 'POST — Envoyer du texte',
+    'post-file': 'POST — Uploader un fichier',
+    'delete': 'DELETE — Supprimer un fichier'
+  };
+
+  function switchPanel(id, btn) {
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.nav-item').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('panel-' + id).classList.add('active');
+    btn.classList.add('active');
+    document.getElementById('panel-title').textContent = titles[id];
+    document.getElementById('response').classList.remove('visible');
+  }
+
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.response-pane').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  }
+
+  function setLoading(on) {
+    document.getElementById('spinner').className = on ? 'spinner active' : 'spinner';
+  }
+
+  function showResponse(status, headers, body) {
+    var el = document.getElementById('response');
+    var sc = document.getElementById('resp-status');
+    sc.textContent = 'HTTP ' + status;
+    sc.className = 'status-code ' + (status < 300 ? 'ok' : status < 400 ? 'redirect' : 'err');
+
+    document.getElementById('resp-body').textContent = body || '(body vide)';
+
+    var headersEl = document.getElementById('resp-headers');
+    headersEl.innerHTML = '';
+    for (var k in headers) {
+      var row = document.createElement('div');
+      row.className = 'header-row';
+      row.innerHTML = '<span class="header-key">' + k + '</span><span class="header-val">' + headers[k] + '</span>';
+      headersEl.appendChild(row);
+    }
+
+    el.className = 'response visible';
+    setLoading(false);
+  }
+
+  function request(method, uri, body, contentType) {
+    setLoading(true);
+    var opts = { method: method };
+    if (body !== undefined) {
+      opts.body = body;
+      if (contentType) opts.headers = { 'Content-Type': contentType };
+    }
+    fetch(uri, opts)
+      .then(function(r) {
+        var status = r.status;
+        var headers = {};
+        r.headers.forEach(function(v, k) { headers[k] = v; });
+        return r.text().then(function(b) { showResponse(status, headers, b); });
+      })
+      .catch(function(e) { setLoading(false); showResponse(0, {}, 'Erreur réseau : ' + e.message); });
+  }
+
+  function updateFileName(input) {
+    var display = document.getElementById('file-name-display');
+    display.textContent = input.files[0] ? input.files[0].name : 'Choisir un fichier...';
+    display.style.color = input.files[0] ? 'var(--ink)' : 'var(--muted)';
+  }
+
+  function doGet() {
+    request('GET', document.getElementById('get-uri').value);
+  }
+
+  function doPost() {
+    request('POST', document.getElementById('post-uri').value, document.getElementById('post-body').value, 'text/plain');
+  }
+
+  function doDelete() {
+    request('DELETE', document.getElementById('delete-uri').value);
+  }
+
+  function doUpload() {
+    var uri = document.getElementById('upload-uri').value;
+    var file = document.getElementById('upload-file').files[0];
+    if (!file) { alert('Sélectionne un fichier'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      request('POST', uri + file.name, e.target.result, file.type || 'application/octet-stream');
+    };
+    reader.readAsText(file);
+  }
+</script>
+
+</body>
 </html>
