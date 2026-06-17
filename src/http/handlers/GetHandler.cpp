@@ -10,12 +10,7 @@ static HttpResponse buildAutoindex(const std::string& directoryPath, const std::
 {
     DIR* directory = opendir(directoryPath.c_str());
     if (!directory)
-    {
-        HttpResponse response;
-        response.status_code = 403;
-        response.status_msg  = "Forbidden";
-        return response;
-    }
+        return buildHttpError(403, "Forbidden");
 
     std::string listingHtml = "<html><body><h1>Index of " + requestUri + "</h1><ul>";
 
