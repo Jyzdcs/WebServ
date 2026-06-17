@@ -1,7 +1,11 @@
 #include "../../../include/http/CgiHandler.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/select.h>
 #include <fcntl.h>
+#include <signal.h>
+
+#define CGI_TIMEOUT_SEC 5
 
 static std::string scriptPathFrom(const HttpRequest& req, const LocationConfig& loc)
 {
@@ -32,14 +36,40 @@ static void runChild(const std::string& interpreter, const std::string& scriptPa
     _exit(1);
 }
 
-static std::string readOutput(int stdout_pipe[2])
+static std::string readOutputWithTimeout(int fd, pid_t pid)
 {
     std::string output;
     char        buf[4096];
-    ssize_t     n;
-    while ((n = read(stdout_pipe[0], buf, sizeof(buf))) > 0)
+
+    while (true)
+    {
+        fd_set         readfds;
+        struct timeval timeout;
+
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
+        timeout.tv_sec  = CGI_TIMEOUT_SEC;
+        timeout.tv_usec = 0;
+
+        int ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
+
+        if (ready == 0)
+        {
+            // timeout : tuer le script
+            kill(pid, SIGKILL);
+            waitpid(pid, NULL, 0);
+            close(fd);
+            return "";
+        }
+        if (ready == -1)
+            break;
+
+        ssize_t n = read(fd, buf, sizeof(buf));
+        if (n <= 0)
+            break;
         output.append(buf, n);
-    close(stdout_pipe[0]);
+    }
+    close(fd);
     return output;
 }
 
@@ -81,7 +111,6 @@ HttpResponse CgiHandler::execute(const HttpRequest& req, const LocationConfig& l
     if (pid == 0)
         runChild(interpreter, scriptPath, argv, envp.data(), stdin_pipe, stdout_pipe);
 
-    // parent
     close(stdin_pipe[0]);
     close(stdout_pipe[1]);
 
@@ -89,7 +118,13 @@ HttpResponse CgiHandler::execute(const HttpRequest& req, const LocationConfig& l
         write(stdin_pipe[1], req.body.c_str(), req.body.size());
     close(stdin_pipe[1]);
 
-    std::string output = readOutput(stdout_pipe);
+    std::string output = readOutputWithTimeout(stdout_pipe[0], pid);
+
+    if (output.empty())
+    {
+        // timeout ou sortie vide — le waitpid a déjà été fait dans readOutputWithTimeout
+        return buildError(504, "Gateway Timeout");
+    }
 
     int status;
     waitpid(pid, &status, 0);
