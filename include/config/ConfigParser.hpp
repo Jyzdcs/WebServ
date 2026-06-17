@@ -20,7 +20,10 @@ private:
     void                advance();
     void                expect(TokenType type);
     ServerConfig        parseServer();
-    LocationConfig      parseLocaton();
+    LocationConfig      parseLocation();
+    void                parseServerDirective(ServerConfig& server);
+    void                parseLocationDirective(LocationConfig &location);
+    size_t              parseSize(const std::string& value);
      
 
 public:
