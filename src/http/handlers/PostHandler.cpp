@@ -5,60 +5,53 @@
 
 static std::string extractFilename(const std::string& uri)
 {
-    std::size_t slash = uri.rfind('/');
-    if (slash == std::string::npos || slash + 1 >= uri.size())
+    std::size_t lastSlashPosition = uri.rfind('/');
+    if (lastSlashPosition == std::string::npos || lastSlashPosition + 1 >= uri.size())
         return "";
-    return uri.substr(slash + 1);
+    return uri.substr(lastSlashPosition + 1);
 }
 
-static bool hasPathTraversal(const std::string& uri)
+HttpResponse MethodHandler::handlePost(const HttpRequest& request, const LocationConfig& location)
 {
-    return uri.find("..") != std::string::npos;
-}
-
-HttpResponse MethodHandler::handlePost(const HttpRequest& req, const LocationConfig& loc)
-{
-    if (loc.getUploadPath().empty())
+    if (location.getUploadPath().empty())
         return buildError(500, "Internal Server Error");
 
-    if (req.body.empty())
+    if (request.body.empty())
         return buildError(400, "Bad Request");
 
-    if (hasPathTraversal(req.uri))
-        return buildError(400, "Bad Request");
-
-    std::string filename = extractFilename(req.uri);
+    std::string filename = extractFilename(request.uri);
     if (filename.empty())
         return buildError(400, "Bad Request");
 
-    std::string path = loc.getUploadPath() + "/" + filename;
+    std::string destinationPath = location.getUploadPath() + "/" + filename;
 
-    int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd == -1)
+    int fileDescriptor = open(destinationPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fileDescriptor == -1)
         return buildError(403, "Forbidden");
 
-    const char* data    = req.body.data();
-    std::size_t total   = req.body.size();
-    std::size_t written = 0;
+    const char* bodyData         = request.body.data();
+    std::size_t totalBytesToWrite = request.body.size();
+    std::size_t totalBytesWritten = 0;
 
-    while (written < total)
+    while (totalBytesWritten < totalBytesToWrite)
     {
-        ssize_t n = write(fd, data + written, total - written);
-        if (n <= 0)
+        ssize_t bytesWritten = write(fileDescriptor, bodyData + totalBytesWritten,
+                                     totalBytesToWrite - totalBytesWritten);
+        if (bytesWritten <= 0)
         {
-            close(fd);
+            close(fileDescriptor);
             return buildError(507, "Insufficient Storage");
         }
-        written += n;
+        totalBytesWritten += bytesWritten;
     }
-    close(fd);
+    close(fileDescriptor);
 
-    HttpResponse       res;
-    res.status_code = 201;
-    res.status_msg  = "Created";
-    res.headers["Location"] = "/" + filename;
-    std::ostringstream ss;
-    ss << res.body.size();
-    res.headers["Content-Length"] = ss.str();
-    return res;
+    HttpResponse       response;
+    std::ostringstream contentLength;
+    response.status_code             = 201;
+    response.status_msg              = "Created";
+    response.headers["Location"]     = "/" + filename;
+    contentLength << response.body.size();
+    response.headers["Content-Length"] = contentLength.str();
+    return response;
 }

@@ -1,84 +1,89 @@
 #include "../../../include/http/CgiHandler.hpp"
 #include <sstream>
 
-HttpResponse CgiHandler::parseOutput(const std::string& raw)
+HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)
 {
-    HttpResponse res;
+    HttpResponse response;
 
-    std::size_t sep = raw.find("\r\n\r\n");
-    if (sep == std::string::npos)
-        sep = raw.find("\n\n");
-    if (sep == std::string::npos)
+    std::size_t separatorPos = cgiOutput.find("\r\n\r\n");
+    if (separatorPos == std::string::npos)
+        separatorPos = cgiOutput.find("\n\n");
+
+    if (separatorPos == std::string::npos)
     {
-        res.status_code = 200;
-        res.status_msg  = "OK";
-        res.body        = raw;
-        res.headers["Content-Type"] = "text/html";
-        std::ostringstream ss;
-        ss << res.body.size();
-        res.headers["Content-Length"] = ss.str();
-        return res;
+        std::ostringstream contentLengthStream;
+        response.status_code = 200;
+        response.status_msg  = "OK";
+        response.body        = cgiOutput;
+        response.headers["Content-Type"] = "text/html";
+        contentLengthStream << response.body.size();
+        response.headers["Content-Length"] = contentLengthStream.str();
+        return response;
     }
 
-    std::string headersPart = raw.substr(0, sep);
-    std::size_t bodyStart   = sep + (raw[sep + 1] == '\n' ? 2 : 4);
-    res.body = raw.substr(bodyStart);
+    bool        usesDoubleCRLF = (cgiOutput[separatorPos + 1] != '\n');
+    std::size_t bodyStart      = separatorPos + (usesDoubleCRLF ? 4 : 2);
 
-    res.status_code = 200;
-    res.status_msg  = "OK";
+    std::string headersSection = cgiOutput.substr(0, separatorPos);
+    response.body              = cgiOutput.substr(bodyStart);
+    response.status_code       = 200;
+    response.status_msg        = "OK";
 
-    std::istringstream stream(headersPart);
-    std::string line;
-    while (std::getline(stream, line))
+    std::istringstream headerStream(headersSection);
+    std::string        headerLine;
+
+    while (std::getline(headerStream, headerLine))
     {
-        if (!line.empty() && line[line.size() - 1] == '\r')
-            line.erase(line.size() - 1);
-        if (line.empty())
+        if (!headerLine.empty() && headerLine[headerLine.size() - 1] == '\r')
+            headerLine.erase(headerLine.size() - 1);
+        if (headerLine.empty())
             continue;
 
-        std::size_t colon = line.find(':');
-        if (colon == std::string::npos)
+        std::size_t colonPos = headerLine.find(':');
+        if (colonPos == std::string::npos)
             continue;
 
-        std::string key   = line.substr(0, colon);
-        std::string value = line.substr(colon + 1);
-        std::size_t vs = 0;
-        while (vs < value.size() && value[vs] == ' ')
-            vs++;
-        value = value.substr(vs);
+        std::string headerKey   = headerLine.substr(0, colonPos);
+        std::string headerValue = headerLine.substr(colonPos + 1);
 
-        if (key == "Status")
+        std::size_t valueStart = 0;
+        while (valueStart < headerValue.size() && headerValue[valueStart] == ' ')
+            valueStart++;
+        headerValue = headerValue.substr(valueStart);
+
+        if (headerKey == "Status")
         {
-            std::istringstream ss(value);
-            ss >> res.status_code;
-            std::size_t sp = value.find(' ');
-            if (sp != std::string::npos)
-                res.status_msg = value.substr(sp + 1);
+            std::istringstream statusStream(headerValue);
+            statusStream >> response.status_code;
+
+            std::size_t statusSpacePos = headerValue.find(' ');
+            if (statusSpacePos != std::string::npos)
+                response.status_msg = headerValue.substr(statusSpacePos + 1);
         }
         else
-            res.headers[key] = value;
+            response.headers[headerKey] = headerValue;
     }
 
-    if (res.headers.find("Content-Type") == res.headers.end())
-        res.headers["Content-Type"] = "text/html";
+    if (response.headers.find("Content-Type") == response.headers.end())
+        response.headers["Content-Type"] = "text/html";
 
-    std::ostringstream ss;
-    ss << res.body.size();
-    res.headers["Content-Length"] = ss.str();
+    std::ostringstream contentLengthStream;
+    contentLengthStream << response.body.size();
+    response.headers["Content-Length"] = contentLengthStream.str();
 
-    return res;
+    return response;
 }
 
-HttpResponse CgiHandler::buildError(int code, const std::string& msg)
+HttpResponse CgiHandler::buildError(int statusCode, const std::string& statusMessage)
 {
-    HttpResponse       res;
-    std::ostringstream ss;
+    HttpResponse       response;
+    std::ostringstream contentLengthStream;
 
-    res.status_code = code;
-    res.status_msg  = msg;
-    res.body        = "<html><body><h1>" + msg + "</h1></body></html>";
-    res.headers["Content-Type"] = "text/html";
-    ss << res.body.size();
-    res.headers["Content-Length"] = ss.str();
-    return res;
+    response.status_code = statusCode;
+    response.status_msg  = statusMessage;
+    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
+    response.headers["Content-Type"] = "text/html";
+    contentLengthStream << response.body.size();
+    response.headers["Content-Length"] = contentLengthStream.str();
+    return response;
 }

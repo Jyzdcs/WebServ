@@ -1,32 +1,39 @@
 #include "../../../include/http/Router.hpp"
 
-static bool matches(const std::string& locationPath, const std::string& uri)
+static bool matchesLocation(const std::string& locationPath, const std::string& requestUri)
 {
-    if (locationPath.size() > uri.size())
+    if (locationPath.size() > requestUri.size())
         return false;
-    if (uri.substr(0, locationPath.size()) != locationPath)
+    if (requestUri.substr(0, locationPath.size()) != locationPath)
         return false;
-    if (locationPath.size() < uri.size() && uri[locationPath.size()] != '/' && locationPath != "/")
+
+    bool uriContinuesAfterPrefix = locationPath.size() < requestUri.size();
+    bool nextCharIsSlash         = requestUri[locationPath.size()] == '/';
+    bool locationIsRoot          = locationPath == "/";
+
+    if (uriContinuesAfterPrefix && !nextCharIsSlash && !locationIsRoot)
         return false;
+
     return true;
 }
 
-LocationConfig Router::route(const HttpRequest& req, const ServerConfig& server)
+LocationConfig Router::route(const HttpRequest& request, const ServerConfig& server)
 {
-    const std::vector<LocationConfig>& locs = server.getLocations();
+    const std::vector<LocationConfig>& locations = server.getLocations();
 
-    LocationConfig best;
-    std::size_t    bestLen = 0;
+    LocationConfig bestMatch;
+    std::size_t    longestMatchLength = 0;
 
-    for (std::vector<LocationConfig>::const_iterator it = locs.begin(); it != locs.end(); ++it)
+    for (std::vector<LocationConfig>::const_iterator locationIt = locations.begin();
+         locationIt != locations.end(); ++locationIt)
     {
-        const std::string& path = it->getPath();
+        const std::string& locationPath = locationIt->getPath();
 
-        if (matches(path, req.uri) && path.size() > bestLen)
+        if (matchesLocation(locationPath, request.uri) && locationPath.size() > longestMatchLength)
         {
-            best    = *it;
-            bestLen = path.size();
+            bestMatch           = *locationIt;
+            longestMatchLength  = locationPath.size();
         }
     }
-    return best;
+    return bestMatch;
 }

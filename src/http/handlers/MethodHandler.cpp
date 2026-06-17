@@ -3,68 +3,124 @@
 #include <algorithm>
 #include <sstream>
 
-static bool isCgiRequest(const HttpRequest& req, const LocationConfig& loc)
+static std::string urlDecode(const std::string& encoded)
 {
-    if (loc.getCgiExtension().empty() || loc.getCgiPath().empty())
-        return false;
-    std::string uri = req.uri;
-    std::size_t q = uri.find('?');
-    if (q != std::string::npos)
-        uri = uri.substr(0, q);
-    const std::string& ext = loc.getCgiExtension();
-    if (uri.size() < ext.size())
-        return false;
-    return uri.substr(uri.size() - ext.size()) == ext;
+    std::string decoded;
+
+    for (std::size_t pos = 0; pos < encoded.size(); ++pos)
+    {
+        bool isPercentSign      = encoded[pos] == '%';
+        bool hasTwoCharAfter    = pos + 2 < encoded.size();
+
+        if (!isPercentSign || !hasTwoCharAfter)
+        {
+            decoded += encoded[pos];
+            continue;
+        }
+
+        char hexSequence[3] = { encoded[pos + 1], encoded[pos + 2], '\0' };
+        char* parseEnd;
+        int   decodedChar = std::strtol(hexSequence, &parseEnd, 16);
+
+        bool validHex = (parseEnd == hexSequence + 2);
+        if (!validHex)
+        {
+            decoded += encoded[pos];
+            continue;
+        }
+
+        decoded += static_cast<char>(decodedChar);
+        pos += 2;
+    }
+
+    return decoded;
 }
 
-HttpResponse MethodHandler::handle(const HttpRequest& req, const LocationConfig& loc, const ServerConfig& server)
+static bool hasPathTraversal(const std::string& uri)
 {
-    (void)server;
+    std::string decodedUri      = urlDecode(uri);
+    bool        containsDotDot  = decodedUri.find("..") != std::string::npos;
 
-    if (!isMethodAllowed(req.method, loc))
+    return containsDotDot;
+}
+
+static bool isCgiRequest(const HttpRequest& request, const LocationConfig& location)
+{
+    bool noCgiConfigured = location.getCgiExtension().empty() || location.getCgiPath().empty();
+    if (noCgiConfigured)
+        return false;
+
+    std::string uriWithoutQuery = request.uri;
+    std::size_t queryStart      = uriWithoutQuery.find('?');
+    if (queryStart != std::string::npos)
+        uriWithoutQuery = uriWithoutQuery.substr(0, queryStart);
+
+    const std::string& cgiExtension = location.getCgiExtension();
+    bool               uriTooShort  = uriWithoutQuery.size() < cgiExtension.size();
+    if (uriTooShort)
+        return false;
+
+    std::string uriExtension = uriWithoutQuery.substr(uriWithoutQuery.size() - cgiExtension.size());
+    return uriExtension == cgiExtension;
+}
+
+HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationConfig& location, const ServerConfig& server)
+{
+    if (hasPathTraversal(request.uri))
+        return buildError(400, "Bad Request");
+
+    if (location.getPath().empty())
+        return buildError(404, "Not Found");
+
+    if (!isMethodAllowed(request.method, location))
         return buildError(405, "Method Not Allowed");
 
-    if (!loc.getRedirectUrl().empty())
+    bool   bodyLimitIsSet    = server.getMaxBodySize() > 0;
+    bool   bodyExceedsLimit  = request.body.size() > server.getMaxBodySize();
+    if (bodyLimitIsSet && bodyExceedsLimit)
+        return buildError(413, "Payload Too Large");
+
+    if (!location.getRedirectUrl().empty())
     {
-        HttpResponse res;
-        res.status_code = 301;
-        res.status_msg  = "Moved Permanently";
-        res.headers["Location"] = loc.getRedirectUrl();
-        return res;
+        HttpResponse redirectResponse;
+        redirectResponse.status_code            = 301;
+        redirectResponse.status_msg             = "Moved Permanently";
+        redirectResponse.headers["Location"]    = location.getRedirectUrl();
+        return redirectResponse;
     }
 
-    if (isCgiRequest(req, loc))
+    if (isCgiRequest(request, location))
     {
-        CgiHandler cgi;
-        return cgi.execute(req, loc);
+        CgiHandler cgiHandler;
+        return cgiHandler.execute(request, location);
     }
 
-    if (req.method == "GET")
-        return handleGet(req, loc);
-    if (req.method == "POST")
-        return handlePost(req, loc);
-    if (req.method == "DELETE")
-        return handleDelete(req, loc);
+    if (request.method == "GET")
+        return handleGet(request, location);
+    if (request.method == "POST")
+        return handlePost(request, location);
+    if (request.method == "DELETE")
+        return handleDelete(request, location);
 
     return buildError(405, "Method Not Allowed");
 }
 
-bool MethodHandler::isMethodAllowed(const std::string& method, const LocationConfig& loc)
+bool MethodHandler::isMethodAllowed(const std::string& method, const LocationConfig& location)
 {
-    const std::vector<std::string>& methods = loc.getAllowedMethods();
-    return std::find(methods.begin(), methods.end(), method) != methods.end();
+    const std::vector<std::string>& allowedMethods = location.getAllowedMethods();
+    return std::find(allowedMethods.begin(), allowedMethods.end(), method) != allowedMethods.end();
 }
 
-HttpResponse MethodHandler::buildError(int code, const std::string& msg)
+HttpResponse MethodHandler::buildError(int statusCode, const std::string& statusMessage)
 {
-    HttpResponse       res;
-    std::ostringstream ss;
+    HttpResponse       response;
+    std::ostringstream contentLength;
 
-    res.status_code = code;
-    res.status_msg  = msg;
-    res.body        = "<html><body><h1>" + msg + "</h1></body></html>";
-    res.headers["Content-Type"] = "text/html";
-    ss << res.body.size();
-    res.headers["Content-Length"] = ss.str();
-    return res;
+    response.status_code = statusCode;
+    response.status_msg  = statusMessage;
+    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
+    response.headers["Content-Type"] = "text/html";
+    contentLength << response.body.size();
+    response.headers["Content-Length"] = contentLength.str();
+    return response;
 }

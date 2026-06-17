@@ -1,6 +1,6 @@
-#include "../../include/http/Router.hpp"
-#include "../../include/config/ServerConfig.hpp"
-#include "../../include/config/LocationConfig.hpp"
+#include "../../../include/http/Router.hpp"
+#include "../../../include/config/ServerConfig.hpp"
+#include "../../../include/config/LocationConfig.hpp"
 #include <iostream>
 
 static int passed = 0;
