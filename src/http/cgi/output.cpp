@@ -5,7 +5,8 @@ HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)
 {
     HttpResponse response;
 
-    std::size_t separatorPos = cgiOutput.find("\r\n\r\n");
+    std::size_t separatorPos   = cgiOutput.find("\r\n\r\n");
+    bool        usesDoubleCRLF = (separatorPos != std::string::npos);
     if (separatorPos == std::string::npos)
         separatorPos = cgiOutput.find("\n\n");
 
@@ -21,8 +22,7 @@ HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)
         return response;
     }
 
-    bool        usesDoubleCRLF = (cgiOutput[separatorPos + 1] != '\n');
-    std::size_t bodyStart      = separatorPos + (usesDoubleCRLF ? 4 : 2);
+    std::size_t bodyStart = separatorPos + (usesDoubleCRLF ? 4 : 2);
 
     std::string headersSection = cgiOutput.substr(0, separatorPos);
     response.body              = cgiOutput.substr(bodyStart);

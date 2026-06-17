@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sstream>
+#include <cerrno>
 
 HttpResponse MethodHandler::handlePost(const HttpRequest& request, const LocationConfig& location)
 {
@@ -13,7 +14,12 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& request, const Locatio
     if (request.body.empty())
         return buildHttpError(400, "Bad Request");
 
-    std::string filename = extractFilename(request.uri);
+    std::string uriPath  = request.uri;
+    std::size_t queryPos = uriPath.find('?');
+    if (queryPos != std::string::npos)
+        uriPath = uriPath.substr(0, queryPos);
+
+    std::string filename = extractFilename(uriPath);
     if (filename.empty())
         return buildHttpError(400, "Bad Request");
 
@@ -21,7 +27,11 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& request, const Locatio
 
     int fileDescriptor = open(destinationPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fileDescriptor == -1)
-        return buildHttpError(403, "Forbidden");
+    {
+        if (errno == EACCES || errno == EPERM)
+            return buildHttpError(403, "Forbidden");
+        return buildHttpError(500, "Internal Server Error");
+    }
 
     const char* bodyData          = request.body.data();
     std::size_t totalBytesToWrite = request.body.size();

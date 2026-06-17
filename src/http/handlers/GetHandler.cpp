@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sstream>
 #include <dirent.h>
+#include <cerrno>
 
 static HttpResponse buildAutoindex(const std::string& directoryPath, const std::string& requestUri)
 {
@@ -18,6 +19,8 @@ static HttpResponse buildAutoindex(const std::string& directoryPath, const std::
     while ((dirEntry = readdir(directory)) != NULL)
     {
         std::string entryName = dirEntry->d_name;
+        if (entryName == "." || entryName == "..")
+            continue;
         std::string entryLink = requestUri;
         if (entryLink[entryLink.size() - 1] != '/')
             entryLink += '/';
@@ -40,26 +43,44 @@ static HttpResponse buildAutoindex(const std::string& directoryPath, const std::
 
 HttpResponse MethodHandler::handleGet(const HttpRequest& request, const LocationConfig& location)
 {
-    std::string filePath = location.getRoot() + request.uri;
+    std::string uriPath  = request.uri;
+    std::size_t queryPos = uriPath.find('?');
+    if (queryPos != std::string::npos)
+        uriPath = uriPath.substr(0, queryPos);
+
+    std::string filePath = location.getRoot() + uriPath;
 
     struct stat fileInfo;
     if (stat(filePath.c_str(), &fileInfo) == 0 && S_ISDIR(fileInfo.st_mode))
     {
         if (!location.getIndex().empty())
         {
-            if (filePath[filePath.size() - 1] != '/')
-                filePath += '/';
-            filePath += location.getIndex();
+            std::string indexPath = filePath;
+            if (indexPath[indexPath.size() - 1] != '/')
+                indexPath += '/';
+            indexPath += location.getIndex();
+
+            struct stat indexInfo;
+            if (stat(indexPath.c_str(), &indexInfo) == 0)
+                filePath = indexPath;
+            else if (location.getAutoindex())
+                return buildAutoindex(filePath, uriPath);
+            else
+                return buildHttpError(404, "Not Found");
         }
         else if (location.getAutoindex())
-            return buildAutoindex(filePath, request.uri);
+            return buildAutoindex(filePath, uriPath);
         else
             return buildHttpError(403, "Forbidden");
     }
 
     int fileDescriptor = open(filePath.c_str(), O_RDONLY);
     if (fileDescriptor == -1)
+    {
+        if (errno == EACCES || errno == EPERM)
+            return buildHttpError(403, "Forbidden");
         return buildHttpError(404, "Not Found");
+    }
 
     HttpResponse response;
     char         readBuffer[4096];
@@ -67,6 +88,11 @@ HttpResponse MethodHandler::handleGet(const HttpRequest& request, const Location
 
     while ((bytesRead = read(fileDescriptor, readBuffer, sizeof(readBuffer))) > 0)
         response.body.append(readBuffer, bytesRead);
+    if (bytesRead < 0)
+    {
+        close(fileDescriptor);
+        return buildHttpError(500, "Internal Server Error");
+    }
     close(fileDescriptor);
 
     response.status_code = 200;

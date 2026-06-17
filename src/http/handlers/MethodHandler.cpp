@@ -3,6 +3,9 @@
 #include "../../../include/http/utils/HttpUtils.hpp"
 #include "../../../include/http/utils/StringUtils.hpp"
 #include <algorithm>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sstream>
 
 static bool isCgiRequest(const HttpRequest& request, const LocationConfig& location)
 {
@@ -30,43 +33,77 @@ bool MethodHandler::isMethodAllowed(const std::string& method, const LocationCon
     return std::find(allowedMethods.begin(), allowedMethods.end(), method) != allowedMethods.end();
 }
 
+static HttpResponse applyCustomErrorPage(const HttpResponse& response,
+                                          const ServerConfig& server,
+                                          const LocationConfig& location)
+{
+    if (response.status_code < 400 || location.getRoot().empty())
+        return response;
+
+    const std::map<int, std::string>& errorPages = server.getErrorPages();
+    std::map<int, std::string>::const_iterator pageIt = errorPages.find(response.status_code);
+    if (pageIt == errorPages.end())
+        return response;
+
+    std::string filePath = location.getRoot() + pageIt->second;
+    int         fd       = open(filePath.c_str(), O_RDONLY);
+    if (fd == -1)
+        return response;
+
+    HttpResponse customResponse = response;
+    customResponse.body = "";
+    char    buf[4096];
+    ssize_t bytesRead;
+
+    while ((bytesRead = read(fd, buf, sizeof(buf))) > 0)
+        customResponse.body.append(buf, bytesRead);
+    if (bytesRead < 0)
+    {
+        close(fd);
+        return response;
+    }
+    close(fd);
+
+    customResponse.headers["Content-Type"] = getContentType(filePath);
+    std::ostringstream contentLength;
+    contentLength << customResponse.body.size();
+    customResponse.headers["Content-Length"] = contentLength.str();
+    return customResponse;
+}
+
 HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationConfig& location, const ServerConfig& server)
 {
+    HttpResponse response;
+
     if (hasPathTraversal(request.uri))
-        return buildHttpError(400, "Bad Request");
-
-    if (location.getPath().empty())
-        return buildHttpError(404, "Not Found");
-
-    if (!isMethodAllowed(request.method, location))
-        return buildHttpError(405, "Method Not Allowed");
-
-    bool bodyLimitIsSet   = server.getMaxBodySize() > 0;
-    bool bodyExceedsLimit = request.body.size() > server.getMaxBodySize();
-    if (bodyLimitIsSet && bodyExceedsLimit)
-        return buildHttpError(413, "Payload Too Large");
-
-    if (!location.getRedirectUrl().empty())
+        response = buildHttpError(400, "Bad Request");
+    else if (location.getPath().empty())
+        response = buildHttpError(404, "Not Found");
+    else if (!isMethodAllowed(request.method, location))
+        response = buildHttpError(405, "Method Not Allowed");
+    else if (server.getMaxBodySize() > 0 && request.body.size() > server.getMaxBodySize())
+        response = buildHttpError(413, "Payload Too Large");
+    else if (!location.getRedirectUrl().empty())
     {
-        HttpResponse redirectResponse;
-        redirectResponse.status_code            = 301;
-        redirectResponse.status_msg             = "Moved Permanently";
-        redirectResponse.headers["Location"]    = location.getRedirectUrl();
-        return redirectResponse;
+        response.status_code               = 301;
+        response.status_msg               = "Moved Permanently";
+        response.headers["Location"]      = location.getRedirectUrl();
+        response.headers["Content-Length"] = "0";
+        return response;
     }
-
-    if (isCgiRequest(request, location))
+    else if (isCgiRequest(request, location))
     {
         CgiHandler cgiHandler;
-        return cgiHandler.execute(request, location);
+        response = cgiHandler.execute(request, location);
     }
+    else if (request.method == "GET")
+        response = handleGet(request, location);
+    else if (request.method == "POST")
+        response = handlePost(request, location);
+    else if (request.method == "DELETE")
+        response = handleDelete(request, location);
+    else
+        response = buildHttpError(405, "Method Not Allowed");
 
-    if (request.method == "GET")
-        return handleGet(request, location);
-    if (request.method == "POST")
-        return handlePost(request, location);
-    if (request.method == "DELETE")
-        return handleDelete(request, location);
-
-    return buildHttpError(405, "Method Not Allowed");
+    return applyCustomErrorPage(response, server, location);
 }

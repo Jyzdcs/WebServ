@@ -16,7 +16,8 @@ static std::string buildScriptPath(const HttpRequest& request, const LocationCon
         uriWithoutQuery = uriWithoutQuery.substr(0, queryStart);
 
     char currentWorkingDir[4096];
-    getcwd(currentWorkingDir, sizeof(currentWorkingDir));
+    if (getcwd(currentWorkingDir, sizeof(currentWorkingDir)) == NULL)
+        return "";
     return std::string(currentWorkingDir) + "/" + location.getRoot() + uriWithoutQuery;
 }
 
@@ -69,11 +70,6 @@ static std::string readCgiOutputWithTimeout(int pipeReadEnd, pid_t childPid, boo
                 close(pipeReadEnd);
                 return "";
             }
-
-            int childExitStatus = waitpid(childPid, NULL, WNOHANG);
-            if (childExitStatus > 0)
-                break;
-
             usleep(5000);
         }
     }
@@ -128,6 +124,8 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const LocationConfi
 
     close(stdinPipe[0]);
     close(stdoutPipe[1]);
+
+    signal(SIGPIPE, SIG_IGN);
 
     if (!request.body.empty())
     {

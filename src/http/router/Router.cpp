@@ -21,15 +21,22 @@ LocationConfig Router::route(const HttpRequest& request, const ServerConfig& ser
 {
     const std::vector<LocationConfig>& locations = server.getLocations();
 
+    std::string uriPath  = request.uri;
+    std::size_t queryPos = uriPath.find('?');
+    if (queryPos != std::string::npos)
+        uriPath = uriPath.substr(0, queryPos);
+
     LocationConfig bestMatch;
     std::size_t    longestMatchLength = 0;
 
     for (std::vector<LocationConfig>::const_iterator locationIt = locations.begin();
          locationIt != locations.end(); ++locationIt)
     {
-        const std::string& locationPath = locationIt->getPath();
+        std::string locationPath = locationIt->getPath();
+        if (locationPath.size() > 1 && locationPath[locationPath.size() - 1] == '/')
+            locationPath = locationPath.substr(0, locationPath.size() - 1);
 
-        if (matchesLocation(locationPath, request.uri) && locationPath.size() > longestMatchLength)
+        if (matchesLocation(locationPath, uriPath) && locationPath.size() > longestMatchLength)
         {
             bestMatch           = *locationIt;
             longestMatchLength  = locationPath.size();
