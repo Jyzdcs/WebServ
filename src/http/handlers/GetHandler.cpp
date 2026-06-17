@@ -1,4 +1,4 @@
-#include "../../include/http/MethodHandler.hpp"
+#include "../../../include/http/MethodHandler.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -49,7 +49,7 @@ static HttpResponse buildAutoindex(const std::string& path, const std::string& u
     closedir(dir);
     html += "</ul></body></html>";
 
-    HttpResponse    res;
+    HttpResponse       res;
     std::ostringstream ss;
     res.status_code = 200;
     res.status_msg  = "OK";
@@ -83,9 +83,9 @@ HttpResponse MethodHandler::handleGet(const HttpRequest& req, const LocationConf
     if (fd == -1)
         return buildError(404, "Not Found");
 
-    HttpResponse    res;
-    char            buf[4096];
-    ssize_t         n;
+    HttpResponse res;
+    char         buf[4096];
+    ssize_t      n;
 
     while ((n = read(fd, buf, sizeof(buf))) > 0)
         res.body.append(buf, n);

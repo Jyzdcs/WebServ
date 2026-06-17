@@ -12,7 +12,7 @@ RequestParser   parser;
 HttpRequest     req = parser.parse(rawString); // rawString = bytes du socket
 
 if (req.method.empty())
-    // requête invalide → envoyer 400
+    // requête invalide → envoyer 400 (voir exemple plus bas)
 
 Router          router;
 LocationConfig  loc = router.route(req, serverConfig);
@@ -62,12 +62,50 @@ send(fd, raw.c_str(), raw.size(), 0);
 
 | Code | Cas |
 |---|---|
-| 200 | Fichier servi |
+| 200 | Fichier servi / CGI OK |
 | 201 | Upload POST réussi |
 | 204 | DELETE réussi |
 | 301 | Redirection |
 | 400 | Requête invalide (path traversal, body vide...) |
-| 403 | Accès interdit |
+| 403 | Accès interdit (dossier, permissions) |
 | 404 | Fichier introuvable |
 | 405 | Méthode non autorisée sur cette route |
-| 500 | Erreur serveur (ex: upload_store manquant) |
+| 500 | Erreur serveur (ex: upload_store manquant, fork fail) |
+| 507 | Disque plein (write incomplet sur POST upload) |
+
+---
+
+## CGI
+
+Le CGI est déclenché automatiquement si la `LocationConfig` a `cgi_extension` et `cgi_path` définis, et que l'URI se termine par cette extension.
+
+Config exemple :
+```nginx
+location /cgi-bin {
+    methods GET POST;
+    cgi_extension .py;
+    cgi_path /usr/bin/python3;
+}
+```
+
+Un script CGI doit écrire sur stdout :
+```
+Content-Type: text/html\n
+\n
+<html>...</html>
+```
+
+Un script de démo est disponible dans `www/cgi-bin/hello.py`.
+
+---
+
+## Structure des fichiers
+
+```
+src/http/
+  parser/       — RequestParser
+  router/       — Router
+  handlers/     — MethodHandler, GetHandler, PostHandler, DeleteHandler
+  cgi/          — CgiHandler (execute, env, output)
+  response/     — ResponseBuilder
+```
