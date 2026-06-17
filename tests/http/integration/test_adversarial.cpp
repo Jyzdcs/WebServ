@@ -117,8 +117,10 @@ int main()
     // header avec null byte dans la valeur (survit au parsing sans crash)
     {
         RequestParser p;
-        std::string raw = "GET / HTTP/1.1\r\nHost: local\0host\r\n\r\n";
-        raw[raw.find('\0')] = 'x'; // on peut pas tester null byte proprement en C++
+        // Use the length-based constructor to include the embedded null byte —
+        // the const char* constructor would stop at the first \0.
+        const char buffer[] = "GET / HTTP/1.1\r\nHost: local\x00host\r\n\r\n";
+        std::string raw(buffer, sizeof(buffer) - 1);
         HttpRequest r = p.parse(raw);
         check("parse: header avec null → pas de crash", true);
     }
