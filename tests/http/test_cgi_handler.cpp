@@ -110,6 +110,13 @@ int main()
         check("Non-CGI: pas de CGI pour .html", res.body.find("WebServ") != std::string::npos);
     }
 
+    // ── CAS 8 : script qui freeze → 504 Gateway Timeout ─────────────
+    {
+        std::cout << "  (attente timeout 5s...)" << std::endl;
+        HttpResponse res = handler.handle(makeReq("GET", "/cgi-bin/infinite.py"), loc, server);
+        check("CGI timeout: 504", res.status_code == 504);
+    }
+
     std::cout << std::endl << passed << " passed, " << failed << " failed" << std::endl;
     return failed > 0 ? 1 : 0;
 }
