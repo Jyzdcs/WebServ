@@ -106,8 +106,14 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const LocationConfi
 
     int stdinPipe[2];
     int stdoutPipe[2];
-    if (pipe(stdinPipe) == -1 || pipe(stdoutPipe) == -1)
+    if (pipe(stdinPipe) == -1)
         return buildHttpError(500, "Internal Server Error");
+    if (pipe(stdoutPipe) == -1)
+    {
+        close(stdinPipe[0]);
+        close(stdinPipe[1]);
+        return buildHttpError(500, "Internal Server Error");
+    }
 
     pid_t childPid = fork();
     if (childPid == -1)
@@ -118,7 +124,7 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const LocationConfi
     }
 
     if (childPid == 0)
-        runChildProcess(interpreter, scriptPath, argv, envPointers.data(), stdinPipe, stdoutPipe);
+        runChildProcess(interpreter, scriptPath, argv, &envPointers[0], stdinPipe, stdoutPipe);
 
     close(stdinPipe[0]);
     close(stdoutPipe[1]);
