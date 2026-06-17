@@ -1,4 +1,4 @@
-#include "../../include/http/MethodHandler.hpp"
+#include "../../../include/http/MethodHandler.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sstream>
@@ -37,9 +37,9 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& req, const LocationCon
     if (fd == -1)
         return buildError(403, "Forbidden");
 
-    const char* data     = req.body.data();
-    std::size_t total    = req.body.size();
-    std::size_t written  = 0;
+    const char* data    = req.body.data();
+    std::size_t total   = req.body.size();
+    std::size_t written = 0;
 
     while (written < total)
     {
@@ -53,7 +53,7 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& req, const LocationCon
     }
     close(fd);
 
-    HttpResponse res;
+    HttpResponse       res;
     res.status_code = 201;
     res.status_msg  = "Created";
     res.headers["Location"] = "/" + filename;

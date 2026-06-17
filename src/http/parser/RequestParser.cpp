@@ -1,4 +1,4 @@
-#include "../../include/http/RequestParser.hpp"
+#include "../../../include/http/RequestParser.hpp"
 #include <sstream>
 
 HttpRequest RequestParser::parse(const std::string& raw)
@@ -65,7 +65,6 @@ bool RequestParser::isValid(const std::string& raw)
 void RequestParser::parseFirstLine(const std::string& line, HttpRequest& req)
 {
     std::istringstream ss(line);
-
     ss >> req.method;
     ss >> req.uri;
     ss >> req.version;
