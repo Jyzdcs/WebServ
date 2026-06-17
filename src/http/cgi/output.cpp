@@ -1,5 +1,4 @@
 #include "../../../include/http/CgiHandler.hpp"
-#include "../../../include/http/HttpUtils.hpp"
 #include <sstream>
 
 HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)

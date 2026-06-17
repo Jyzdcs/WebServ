@@ -1,13 +1,6 @@
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <sstream>
-
-static std::string extractQueryString(const std::string& uri)
-{
-    std::size_t queryStart = uri.find('?');
-    if (queryStart == std::string::npos)
-        return "";
-    return uri.substr(queryStart + 1);
-}
 
 std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
                                                const std::string& scriptPath)
@@ -17,6 +10,7 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
     envVars.push_back("REQUEST_METHOD=" + request.method);
     envVars.push_back("QUERY_STRING="   + extractQueryString(request.uri));
     envVars.push_back("SCRIPT_FILENAME=" + scriptPath);
+
     std::string pathWithoutQuery = request.uri;
     std::size_t queryPosition    = pathWithoutQuery.find('?');
     if (queryPosition != std::string::npos)

@@ -1,5 +1,5 @@
 #include "../../../include/http/MethodHandler.hpp"
-#include "../../../include/http/HttpUtils.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
 #include <unistd.h>
 #include <sys/stat.h>
 

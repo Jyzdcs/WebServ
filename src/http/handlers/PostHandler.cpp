@@ -1,16 +1,9 @@
 #include "../../../include/http/MethodHandler.hpp"
-#include "../../../include/http/HttpUtils.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sstream>
-
-static std::string extractFilename(const std::string& uri)
-{
-    std::size_t lastSlashPosition = uri.rfind('/');
-    if (lastSlashPosition == std::string::npos || lastSlashPosition + 1 >= uri.size())
-        return "";
-    return uri.substr(lastSlashPosition + 1);
-}
 
 HttpResponse MethodHandler::handlePost(const HttpRequest& request, const LocationConfig& location)
 {
@@ -30,7 +23,7 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& request, const Locatio
     if (fileDescriptor == -1)
         return buildHttpError(403, "Forbidden");
 
-    const char* bodyData         = request.body.data();
+    const char* bodyData          = request.body.data();
     std::size_t totalBytesToWrite = request.body.size();
     std::size_t totalBytesWritten = 0;
 
@@ -43,7 +36,7 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& request, const Locatio
             close(fileDescriptor);
             return buildHttpError(507, "Insufficient Storage");
         }
-        totalBytesWritten += bytesWritten;
+        totalBytesWritten += static_cast<std::size_t>(bytesWritten);
     }
     close(fileDescriptor);
 

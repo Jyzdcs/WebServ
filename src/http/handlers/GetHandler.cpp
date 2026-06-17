@@ -1,29 +1,10 @@
 #include "../../../include/http/MethodHandler.hpp"
-#include "../../../include/http/HttpUtils.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sstream>
 #include <dirent.h>
-
-static std::string getContentType(const std::string& filePath)
-{
-    std::string fileExtension;
-    std::size_t dotPosition = filePath.rfind('.');
-    if (dotPosition != std::string::npos)
-        fileExtension = filePath.substr(dotPosition);
-
-    if (fileExtension == ".html" || fileExtension == ".htm") return "text/html";
-    if (fileExtension == ".css")                             return "text/css";
-    if (fileExtension == ".js")                              return "application/javascript";
-    if (fileExtension == ".json")                            return "application/json";
-    if (fileExtension == ".png")                             return "image/png";
-    if (fileExtension == ".jpg" || fileExtension == ".jpeg") return "image/jpeg";
-    if (fileExtension == ".gif")                             return "image/gif";
-    if (fileExtension == ".ico")                             return "image/x-icon";
-    if (fileExtension == ".txt")                             return "text/plain";
-    return "application/octet-stream";
-}
 
 static HttpResponse buildAutoindex(const std::string& directoryPath, const std::string& requestUri)
 {
@@ -45,7 +26,7 @@ static HttpResponse buildAutoindex(const std::string& directoryPath, const std::
         std::string entryLink = requestUri;
         if (entryLink[entryLink.size() - 1] != '/')
             entryLink += '/';
-        entryLink  += entryName;
+        entryLink   += entryName;
         listingHtml += "<li><a href=\"" + entryLink + "\">" + entryName + "</a></li>";
     }
     closedir(directory);

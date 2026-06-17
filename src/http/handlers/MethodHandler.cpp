@@ -1,49 +1,8 @@
 #include "../../../include/http/MethodHandler.hpp"
 #include "../../../include/http/CgiHandler.hpp"
-#include "../../../include/http/HttpUtils.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <algorithm>
-#include <sstream>
-
-static std::string urlDecode(const std::string& encoded)
-{
-    std::string decoded;
-
-    for (std::size_t pos = 0; pos < encoded.size(); ++pos)
-    {
-        bool isPercentSign      = encoded[pos] == '%';
-        bool hasTwoCharAfter    = pos + 2 < encoded.size();
-
-        if (!isPercentSign || !hasTwoCharAfter)
-        {
-            decoded += encoded[pos];
-            continue;
-        }
-
-        char hexSequence[3] = { encoded[pos + 1], encoded[pos + 2], '\0' };
-        char* parseEnd;
-        int   decodedChar = std::strtol(hexSequence, &parseEnd, 16);
-
-        bool validHex = (parseEnd == hexSequence + 2);
-        if (!validHex)
-        {
-            decoded += encoded[pos];
-            continue;
-        }
-
-        decoded += static_cast<char>(decodedChar);
-        pos += 2;
-    }
-
-    return decoded;
-}
-
-static bool hasPathTraversal(const std::string& uri)
-{
-    std::string decodedUri      = urlDecode(uri);
-    bool        containsDotDot  = decodedUri.find("..") != std::string::npos;
-
-    return containsDotDot;
-}
 
 static bool isCgiRequest(const HttpRequest& request, const LocationConfig& location)
 {
@@ -82,8 +41,8 @@ HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationCon
     if (!isMethodAllowed(request.method, location))
         return buildHttpError(405, "Method Not Allowed");
 
-    bool   bodyLimitIsSet    = server.getMaxBodySize() > 0;
-    bool   bodyExceedsLimit  = request.body.size() > server.getMaxBodySize();
+    bool bodyLimitIsSet   = server.getMaxBodySize() > 0;
+    bool bodyExceedsLimit = request.body.size() > server.getMaxBodySize();
     if (bodyLimitIsSet && bodyExceedsLimit)
         return buildHttpError(413, "Payload Too Large");
 
