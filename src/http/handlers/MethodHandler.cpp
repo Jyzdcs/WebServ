@@ -1,5 +1,6 @@
 #include "../../../include/http/MethodHandler.hpp"
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/HttpUtils.hpp"
 #include <algorithm>
 #include <sstream>
 
@@ -70,35 +71,21 @@ bool MethodHandler::isMethodAllowed(const std::string& method, const LocationCon
     return std::find(allowedMethods.begin(), allowedMethods.end(), method) != allowedMethods.end();
 }
 
-HttpResponse MethodHandler::buildError(int statusCode, const std::string& statusMessage)
-{
-    HttpResponse       response;
-    std::ostringstream contentLength;
-
-    response.status_code = statusCode;
-    response.status_msg  = statusMessage;
-    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
-    response.headers["Content-Type"] = "text/html";
-    contentLength << response.body.size();
-    response.headers["Content-Length"] = contentLength.str();
-    return response;
-}
-
 HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationConfig& location, const ServerConfig& server)
 {
     if (hasPathTraversal(request.uri))
-        return buildError(400, "Bad Request");
+        return buildHttpError(400, "Bad Request");
 
     if (location.getPath().empty())
-        return buildError(404, "Not Found");
+        return buildHttpError(404, "Not Found");
 
     if (!isMethodAllowed(request.method, location))
-        return buildError(405, "Method Not Allowed");
+        return buildHttpError(405, "Method Not Allowed");
 
     bool   bodyLimitIsSet    = server.getMaxBodySize() > 0;
     bool   bodyExceedsLimit  = request.body.size() > server.getMaxBodySize();
     if (bodyLimitIsSet && bodyExceedsLimit)
-        return buildError(413, "Payload Too Large");
+        return buildHttpError(413, "Payload Too Large");
 
     if (!location.getRedirectUrl().empty())
     {
@@ -122,5 +109,5 @@ HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationCon
     if (request.method == "DELETE")
         return handleDelete(request, location);
 
-    return buildError(405, "Method Not Allowed");
+    return buildHttpError(405, "Method Not Allowed");
 }

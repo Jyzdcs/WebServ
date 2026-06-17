@@ -1,4 +1,5 @@
 #include "../../../include/http/MethodHandler.hpp"
+#include "../../../include/http/HttpUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sstream>
@@ -14,20 +15,20 @@ static std::string extractFilename(const std::string& uri)
 HttpResponse MethodHandler::handlePost(const HttpRequest& request, const LocationConfig& location)
 {
     if (location.getUploadPath().empty())
-        return buildError(500, "Internal Server Error");
+        return buildHttpError(500, "Internal Server Error");
 
     if (request.body.empty())
-        return buildError(400, "Bad Request");
+        return buildHttpError(400, "Bad Request");
 
     std::string filename = extractFilename(request.uri);
     if (filename.empty())
-        return buildError(400, "Bad Request");
+        return buildHttpError(400, "Bad Request");
 
     std::string destinationPath = location.getUploadPath() + "/" + filename;
 
     int fileDescriptor = open(destinationPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fileDescriptor == -1)
-        return buildError(403, "Forbidden");
+        return buildHttpError(403, "Forbidden");
 
     const char* bodyData         = request.body.data();
     std::size_t totalBytesToWrite = request.body.size();
@@ -40,7 +41,7 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& request, const Locatio
         if (bytesWritten <= 0)
         {
             close(fileDescriptor);
-            return buildError(507, "Insufficient Storage");
+            return buildHttpError(507, "Insufficient Storage");
         }
         totalBytesWritten += bytesWritten;
     }

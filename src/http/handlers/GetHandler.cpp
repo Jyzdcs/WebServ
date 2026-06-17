@@ -1,4 +1,5 @@
 #include "../../../include/http/MethodHandler.hpp"
+#include "../../../include/http/HttpUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -77,12 +78,12 @@ HttpResponse MethodHandler::handleGet(const HttpRequest& request, const Location
         else if (location.getAutoindex())
             return buildAutoindex(filePath, request.uri);
         else
-            return buildError(403, "Forbidden");
+            return buildHttpError(403, "Forbidden");
     }
 
     int fileDescriptor = open(filePath.c_str(), O_RDONLY);
     if (fileDescriptor == -1)
-        return buildError(404, "Not Found");
+        return buildHttpError(404, "Not Found");
 
     HttpResponse response;
     char         readBuffer[4096];

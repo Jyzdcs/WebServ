@@ -1,4 +1,5 @@
 #include "../../../include/http/MethodHandler.hpp"
+#include "../../../include/http/HttpUtils.hpp"
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -8,10 +9,10 @@ HttpResponse MethodHandler::handleDelete(const HttpRequest& request, const Locat
 
     struct stat fileInfo;
     if (stat(filePath.c_str(), &fileInfo) == -1)
-        return buildError(404, "Not Found");
+        return buildHttpError(404, "Not Found");
 
     if (S_ISDIR(fileInfo.st_mode))
-        return buildError(403, "Forbidden");
+        return buildHttpError(403, "Forbidden");
 
     if (unlink(filePath.c_str()) == 0)
     {
@@ -20,5 +21,5 @@ HttpResponse MethodHandler::handleDelete(const HttpRequest& request, const Locat
         response.status_msg  = "No Content";
         return response;
     }
-    return buildError(403, "Forbidden");
+    return buildHttpError(403, "Forbidden");
 }

@@ -1,4 +1,5 @@
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/HttpUtils.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
@@ -36,9 +37,6 @@ static void runChildProcess(const std::string& interpreter, const std::string& s
     _exit(1);
 }
 
-// Read CGI stdout with a deadline-based timeout.
-// Uses O_NONBLOCK + time() instead of select()/poll() so the server
-// keeps exactly one multiplexer (the main poll() in the event loop).
 static std::string readCgiOutputWithTimeout(int pipeReadEnd, pid_t childPid, bool& hasTimedOut)
 {
     std::string cgiOutput;
@@ -89,9 +87,9 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const LocationConfi
     std::string scriptPath = buildScriptPath(request, location);
 
     if (access(scriptPath.c_str(), F_OK) == -1)
-        return buildError(404, "Not Found");
+        return buildHttpError(404, "Not Found");
     if (access(scriptPath.c_str(), X_OK) == -1)
-        return buildError(403, "Forbidden");
+        return buildHttpError(403, "Forbidden");
 
     std::vector<std::string> envVars = buildEnv(request, scriptPath);
     std::vector<char*>       envPointers;
@@ -109,14 +107,14 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const LocationConfi
     int stdinPipe[2];
     int stdoutPipe[2];
     if (pipe(stdinPipe) == -1 || pipe(stdoutPipe) == -1)
-        return buildError(500, "Internal Server Error");
+        return buildHttpError(500, "Internal Server Error");
 
     pid_t childPid = fork();
     if (childPid == -1)
     {
         close(stdinPipe[0]);  close(stdinPipe[1]);
         close(stdoutPipe[0]); close(stdoutPipe[1]);
-        return buildError(500, "Internal Server Error");
+        return buildHttpError(500, "Internal Server Error");
     }
 
     if (childPid == 0)
@@ -147,19 +145,19 @@ HttpResponse CgiHandler::execute(const HttpRequest& request, const LocationConfi
     std::string cgiOutput   = readCgiOutputWithTimeout(stdoutPipe[0], childPid, hasTimedOut);
 
     if (hasTimedOut)
-        return buildError(504, "Gateway Timeout");
+        return buildHttpError(504, "Gateway Timeout");
 
     int childExitStatus = 0;
     waitpid(childPid, &childExitStatus, 0);
 
     if (WIFEXITED(childExitStatus) && WEXITSTATUS(childExitStatus) != 0)
-        return buildError(500, "Internal Server Error");
+        return buildHttpError(500, "Internal Server Error");
 
     if (WIFSIGNALED(childExitStatus))
-        return buildError(500, "Internal Server Error");
+        return buildHttpError(500, "Internal Server Error");
 
     if (cgiOutput.empty())
-        return buildError(500, "Internal Server Error");
+        return buildHttpError(500, "Internal Server Error");
 
     return parseOutput(cgiOutput);
 }

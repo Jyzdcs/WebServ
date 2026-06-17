@@ -15,8 +15,7 @@ private:
     HttpResponse handlePost(const HttpRequest& req, const LocationConfig& loc);
     HttpResponse handleDelete(const HttpRequest& req, const LocationConfig& loc);
 
-    bool         isMethodAllowed(const std::string& method, const LocationConfig& loc);
-    HttpResponse buildError(int code, const std::string& msg);
+    bool isMethodAllowed(const std::string& method, const LocationConfig& loc);
 };
 
 #endif
