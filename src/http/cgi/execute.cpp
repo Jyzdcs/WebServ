@@ -1,136 +1,163 @@
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
-#include <sys/select.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <time.h>
 
 #define CGI_TIMEOUT_SEC 5
 
-static std::string scriptPathFrom(const HttpRequest& req, const LocationConfig& loc)
+static std::string buildScriptPath(const HttpRequest& request, const LocationConfig& location)
 {
-    std::string uri = req.uri;
-    std::size_t q = uri.find('?');
-    if (q != std::string::npos)
-        uri = uri.substr(0, q);
+    std::string uriWithoutQuery = request.uri;
+    std::size_t queryStart      = uriWithoutQuery.find('?');
+    if (queryStart != std::string::npos)
+        uriWithoutQuery = uriWithoutQuery.substr(0, queryStart);
 
-    char cwd[4096];
-    getcwd(cwd, sizeof(cwd));
-    return std::string(cwd) + "/" + loc.getRoot() + uri;
+    char currentWorkingDir[4096];
+    getcwd(currentWorkingDir, sizeof(currentWorkingDir));
+    return std::string(currentWorkingDir) + "/" + location.getRoot() + uriWithoutQuery;
 }
 
-static void runChild(const std::string& interpreter, const std::string& scriptPath,
-                     char** argv, char** envp,
-                     int stdin_pipe[2], int stdout_pipe[2])
+static void runChildProcess(const std::string& interpreter, const std::string& scriptPath,
+                             char** argv, char** envp,
+                             int stdinPipe[2], int stdoutPipe[2])
 {
-    dup2(stdin_pipe[0],  STDIN_FILENO);
-    dup2(stdout_pipe[1], STDOUT_FILENO);
+    dup2(stdinPipe[0],  STDIN_FILENO);
+    dup2(stdoutPipe[1], STDOUT_FILENO);
 
-    close(stdin_pipe[0]);  close(stdin_pipe[1]);
-    close(stdout_pipe[0]); close(stdout_pipe[1]);
+    close(stdinPipe[0]);  close(stdinPipe[1]);
+    close(stdoutPipe[0]); close(stdoutPipe[1]);
 
-    std::string dir = scriptPath.substr(0, scriptPath.rfind('/'));
-    chdir(dir.c_str());
+    std::string scriptDirectory = scriptPath.substr(0, scriptPath.rfind('/'));
+    chdir(scriptDirectory.c_str());
 
     execve(interpreter.c_str(), argv, envp);
     _exit(1);
 }
 
-static std::string readOutputWithTimeout(int fd, pid_t pid)
+static std::string readCgiOutputWithTimeout(int pipeReadEnd, pid_t childPid, bool& hasTimedOut)
 {
-    std::string output;
-    char        buf[4096];
+    std::string cgiOutput;
+    char        readBuffer[4096];
+    hasTimedOut = false;
+
+    fcntl(pipeReadEnd, F_SETFL, O_NONBLOCK);
+
+    time_t timeoutDeadline = time(NULL) + CGI_TIMEOUT_SEC;
 
     while (true)
     {
-        fd_set         readfds;
-        struct timeval timeout;
+        ssize_t bytesRead = read(pipeReadEnd, readBuffer, sizeof(readBuffer));
 
-        FD_ZERO(&readfds);
-        FD_SET(fd, &readfds);
-        timeout.tv_sec  = CGI_TIMEOUT_SEC;
-        timeout.tv_usec = 0;
-
-        int ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
-
-        if (ready == 0)
+        if (bytesRead > 0)
         {
-            // timeout : tuer le script
-            kill(pid, SIGKILL);
-            waitpid(pid, NULL, 0);
-            close(fd);
-            return "";
+            cgiOutput.append(readBuffer, bytesRead);
         }
-        if (ready == -1)
+        else if (bytesRead == 0)
+        {
             break;
+        }
+        else
+        {
+            if (time(NULL) >= timeoutDeadline)
+            {
+                hasTimedOut = true;
+                kill(childPid, SIGKILL);
+                waitpid(childPid, NULL, 0);
+                close(pipeReadEnd);
+                return "";
+            }
 
-        ssize_t n = read(fd, buf, sizeof(buf));
-        if (n <= 0)
-            break;
-        output.append(buf, n);
+            int childExitStatus = waitpid(childPid, NULL, WNOHANG);
+            if (childExitStatus > 0)
+                break;
+
+            usleep(5000);
+        }
     }
-    close(fd);
-    return output;
+
+    close(pipeReadEnd);
+    return cgiOutput;
 }
 
-HttpResponse CgiHandler::execute(const HttpRequest& req, const LocationConfig& loc)
+HttpResponse CgiHandler::execute(const HttpRequest& request, const LocationConfig& location)
 {
-    std::string scriptPath = scriptPathFrom(req, loc);
+    std::string scriptPath = buildScriptPath(request, location);
 
     if (access(scriptPath.c_str(), F_OK) == -1)
-        return buildError(404, "Not Found");
+        return buildHttpError(404, "Not Found");
     if (access(scriptPath.c_str(), X_OK) == -1)
-        return buildError(403, "Forbidden");
+        return buildHttpError(403, "Forbidden");
 
-    std::vector<std::string> envVars = buildEnv(req, scriptPath);
-    std::vector<char*>       envp;
-    for (std::size_t i = 0; i < envVars.size(); i++)
-        envp.push_back(const_cast<char*>(envVars[i].c_str()));
-    envp.push_back(NULL);
+    std::vector<std::string> envVars = buildEnv(request, scriptPath);
+    std::vector<char*>       envPointers;
+    for (std::size_t envIndex = 0; envIndex < envVars.size(); envIndex++)
+        envPointers.push_back(const_cast<char*>(envVars[envIndex].c_str()));
+    envPointers.push_back(NULL);
 
-    std::string interpreter = loc.getCgiPath();
-    char* argv[3] = {
+    std::string interpreter = location.getCgiPath();
+    char*       argv[3]     = {
         const_cast<char*>(interpreter.c_str()),
         const_cast<char*>(scriptPath.c_str()),
         NULL
     };
 
-    int stdin_pipe[2];
-    int stdout_pipe[2];
-    if (pipe(stdin_pipe) == -1 || pipe(stdout_pipe) == -1)
-        return buildError(500, "Internal Server Error");
+    int stdinPipe[2];
+    int stdoutPipe[2];
+    if (pipe(stdinPipe) == -1 || pipe(stdoutPipe) == -1)
+        return buildHttpError(500, "Internal Server Error");
 
-    pid_t pid = fork();
-    if (pid == -1)
+    pid_t childPid = fork();
+    if (childPid == -1)
     {
-        close(stdin_pipe[0]);  close(stdin_pipe[1]);
-        close(stdout_pipe[0]); close(stdout_pipe[1]);
-        return buildError(500, "Internal Server Error");
+        close(stdinPipe[0]);  close(stdinPipe[1]);
+        close(stdoutPipe[0]); close(stdoutPipe[1]);
+        return buildHttpError(500, "Internal Server Error");
     }
 
-    if (pid == 0)
-        runChild(interpreter, scriptPath, argv, envp.data(), stdin_pipe, stdout_pipe);
+    if (childPid == 0)
+        runChildProcess(interpreter, scriptPath, argv, envPointers.data(), stdinPipe, stdoutPipe);
 
-    close(stdin_pipe[0]);
-    close(stdout_pipe[1]);
+    close(stdinPipe[0]);
+    close(stdoutPipe[1]);
 
-    if (!req.body.empty())
-        write(stdin_pipe[1], req.body.c_str(), req.body.size());
-    close(stdin_pipe[1]);
-
-    std::string output = readOutputWithTimeout(stdout_pipe[0], pid);
-
-    if (output.empty())
+    if (!request.body.empty())
     {
-        // timeout ou sortie vide — le waitpid a déjà été fait dans readOutputWithTimeout
-        return buildError(504, "Gateway Timeout");
+        const char* bodyData          = request.body.c_str();
+        std::size_t totalBytesToWrite = request.body.size();
+        std::size_t totalBytesWritten = 0;
+
+        while (totalBytesWritten < totalBytesToWrite)
+        {
+            ssize_t bytesWritten = write(stdinPipe[1],
+                                         bodyData + totalBytesWritten,
+                                         totalBytesToWrite - totalBytesWritten);
+            if (bytesWritten <= 0)
+                break;
+            totalBytesWritten += static_cast<std::size_t>(bytesWritten);
+        }
     }
+    close(stdinPipe[1]);
 
-    int status;
-    waitpid(pid, &status, 0);
+    bool        hasTimedOut = false;
+    std::string cgiOutput   = readCgiOutputWithTimeout(stdoutPipe[0], childPid, hasTimedOut);
 
-    if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
-        return buildError(500, "Internal Server Error");
+    if (hasTimedOut)
+        return buildHttpError(504, "Gateway Timeout");
 
-    return parseOutput(output);
+    int childExitStatus = 0;
+    waitpid(childPid, &childExitStatus, 0);
+
+    if (WIFEXITED(childExitStatus) && WEXITSTATUS(childExitStatus) != 0)
+        return buildHttpError(500, "Internal Server Error");
+
+    if (WIFSIGNALED(childExitStatus))
+        return buildHttpError(500, "Internal Server Error");
+
+    if (cgiOutput.empty())
+        return buildHttpError(500, "Internal Server Error");
+
+    return parseOutput(cgiOutput);
 }

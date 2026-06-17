@@ -1,102 +1,85 @@
 #include "../../../include/http/MethodHandler.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sstream>
 #include <dirent.h>
 
-static std::string getContentType(const std::string& path)
+static HttpResponse buildAutoindex(const std::string& directoryPath, const std::string& requestUri)
 {
-    std::string ext;
-    std::size_t dot = path.rfind('.');
-    if (dot != std::string::npos)
-        ext = path.substr(dot);
-
-    if (ext == ".html" || ext == ".htm") return "text/html";
-    if (ext == ".css")                   return "text/css";
-    if (ext == ".js")                    return "application/javascript";
-    if (ext == ".json")                  return "application/json";
-    if (ext == ".png")                   return "image/png";
-    if (ext == ".jpg" || ext == ".jpeg") return "image/jpeg";
-    if (ext == ".gif")                   return "image/gif";
-    if (ext == ".ico")                   return "image/x-icon";
-    if (ext == ".txt")                   return "text/plain";
-    return "application/octet-stream";
-}
-
-static HttpResponse buildAutoindex(const std::string& path, const std::string& uri)
-{
-    DIR* dir = opendir(path.c_str());
-    if (!dir)
+    DIR* directory = opendir(directoryPath.c_str());
+    if (!directory)
     {
-        HttpResponse res;
-        res.status_code = 403;
-        res.status_msg  = "Forbidden";
-        return res;
+        HttpResponse response;
+        response.status_code = 403;
+        response.status_msg  = "Forbidden";
+        return response;
     }
 
-    std::string html = "<html><body><h1>Index of " + uri + "</h1><ul>";
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        std::string name = entry->d_name;
-        std::string href = uri;
-        if (href[href.size() - 1] != '/')
-            href += '/';
-        href += name;
-        html += "<li><a href=\"" + href + "\">" + name + "</a></li>";
-    }
-    closedir(dir);
-    html += "</ul></body></html>";
+    std::string listingHtml = "<html><body><h1>Index of " + requestUri + "</h1><ul>";
 
-    HttpResponse       res;
-    std::ostringstream ss;
-    res.status_code = 200;
-    res.status_msg  = "OK";
-    res.body        = html;
-    res.headers["Content-Type"] = "text/html";
-    ss << html.size();
-    res.headers["Content-Length"] = ss.str();
-    return res;
+    struct dirent* dirEntry;
+    while ((dirEntry = readdir(directory)) != NULL)
+    {
+        std::string entryName = dirEntry->d_name;
+        std::string entryLink = requestUri;
+        if (entryLink[entryLink.size() - 1] != '/')
+            entryLink += '/';
+        entryLink   += entryName;
+        listingHtml += "<li><a href=\"" + entryLink + "\">" + entryName + "</a></li>";
+    }
+    closedir(directory);
+    listingHtml += "</ul></body></html>";
+
+    HttpResponse       response;
+    std::ostringstream contentLength;
+    response.status_code = 200;
+    response.status_msg  = "OK";
+    response.body        = listingHtml;
+    response.headers["Content-Type"] = "text/html";
+    contentLength << listingHtml.size();
+    response.headers["Content-Length"] = contentLength.str();
+    return response;
 }
 
-HttpResponse MethodHandler::handleGet(const HttpRequest& req, const LocationConfig& loc)
+HttpResponse MethodHandler::handleGet(const HttpRequest& request, const LocationConfig& location)
 {
-    std::string path = loc.getRoot() + req.uri;
+    std::string filePath = location.getRoot() + request.uri;
 
-    struct stat st;
-    if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+    struct stat fileInfo;
+    if (stat(filePath.c_str(), &fileInfo) == 0 && S_ISDIR(fileInfo.st_mode))
     {
-        if (!loc.getIndex().empty())
+        if (!location.getIndex().empty())
         {
-            if (path[path.size() - 1] != '/')
-                path += '/';
-            path += loc.getIndex();
+            if (filePath[filePath.size() - 1] != '/')
+                filePath += '/';
+            filePath += location.getIndex();
         }
-        else if (loc.getAutoindex())
-            return buildAutoindex(path, req.uri);
+        else if (location.getAutoindex())
+            return buildAutoindex(filePath, request.uri);
         else
-            return buildError(403, "Forbidden");
+            return buildHttpError(403, "Forbidden");
     }
 
-    int fd = open(path.c_str(), O_RDONLY);
-    if (fd == -1)
-        return buildError(404, "Not Found");
+    int fileDescriptor = open(filePath.c_str(), O_RDONLY);
+    if (fileDescriptor == -1)
+        return buildHttpError(404, "Not Found");
 
-    HttpResponse res;
-    char         buf[4096];
-    ssize_t      n;
+    HttpResponse response;
+    char         readBuffer[4096];
+    ssize_t      bytesRead;
 
-    while ((n = read(fd, buf, sizeof(buf))) > 0)
-        res.body.append(buf, n);
-    close(fd);
+    while ((bytesRead = read(fileDescriptor, readBuffer, sizeof(readBuffer))) > 0)
+        response.body.append(readBuffer, bytesRead);
+    close(fileDescriptor);
 
-    res.status_code = 200;
-    res.status_msg  = "OK";
-    res.headers["Content-Type"] = getContentType(path);
+    response.status_code = 200;
+    response.status_msg  = "OK";
+    response.headers["Content-Type"] = getContentType(filePath);
 
-    std::ostringstream ss;
-    ss << res.body.size();
-    res.headers["Content-Length"] = ss.str();
-    return res;
+    std::ostringstream contentLength;
+    contentLength << response.body.size();
+    response.headers["Content-Length"] = contentLength.str();
+    return response;
 }

@@ -1,46 +1,45 @@
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <sstream>
 
-static std::string getQueryString(const std::string& uri)
+std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
+                                               const std::string& scriptPath)
 {
-    std::size_t q = uri.find('?');
-    if (q == std::string::npos)
-        return "";
-    return uri.substr(q + 1);
-}
+    std::vector<std::string> envVars;
 
-std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& req, const std::string& scriptPath)
-{
-    std::vector<std::string> env;
+    envVars.push_back("REQUEST_METHOD=" + request.method);
+    envVars.push_back("QUERY_STRING="   + extractQueryString(request.uri));
+    envVars.push_back("SCRIPT_FILENAME=" + scriptPath);
 
-    env.push_back("REQUEST_METHOD=" + req.method);
-    env.push_back("QUERY_STRING=" + getQueryString(req.uri));
-    env.push_back("SCRIPT_FILENAME=" + scriptPath);
-    env.push_back("PATH_INFO=" + req.uri);
+    std::string pathWithoutQuery = request.uri;
+    std::size_t queryPosition    = pathWithoutQuery.find('?');
+    if (queryPosition != std::string::npos)
+        pathWithoutQuery = pathWithoutQuery.substr(0, queryPosition);
+    envVars.push_back("PATH_INFO=" + pathWithoutQuery);
 
-    std::map<std::string, std::string>::const_iterator it;
+    std::map<std::string, std::string>::const_iterator headerIt;
 
-    it = req.headers.find("Content-Type");
-    if (it != req.headers.end())
-        env.push_back("CONTENT_TYPE=" + it->second);
+    headerIt = request.headers.find("Content-Type");
+    if (headerIt != request.headers.end())
+        envVars.push_back("CONTENT_TYPE=" + headerIt->second);
     else
-        env.push_back("CONTENT_TYPE=");
+        envVars.push_back("CONTENT_TYPE=");
 
-    if (!req.body.empty())
+    if (!request.body.empty())
     {
-        std::ostringstream ss;
-        ss << req.body.size();
-        env.push_back("CONTENT_LENGTH=" + ss.str());
+        std::ostringstream bodyLengthStream;
+        bodyLengthStream << request.body.size();
+        envVars.push_back("CONTENT_LENGTH=" + bodyLengthStream.str());
     }
     else
-        env.push_back("CONTENT_LENGTH=0");
+        envVars.push_back("CONTENT_LENGTH=0");
 
-    it = req.headers.find("Host");
-    if (it != req.headers.end())
-        env.push_back("HTTP_HOST=" + it->second);
+    headerIt = request.headers.find("Host");
+    if (headerIt != request.headers.end())
+        envVars.push_back("HTTP_HOST=" + headerIt->second);
 
-    env.push_back("SERVER_PROTOCOL=HTTP/1.1");
-    env.push_back("GATEWAY_INTERFACE=CGI/1.1");
+    envVars.push_back("SERVER_PROTOCOL=HTTP/1.1");
+    envVars.push_back("GATEWAY_INTERFACE=CGI/1.1");
 
-    return env;
+    return envVars;
 }

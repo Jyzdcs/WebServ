@@ -14,7 +14,6 @@ public:
 private:
     std::vector<std::string> buildEnv(const HttpRequest& req, const std::string& scriptPath);
     HttpResponse             parseOutput(const std::string& raw);
-    HttpResponse             buildError(int code, const std::string& msg);
 };
 
 #endif
