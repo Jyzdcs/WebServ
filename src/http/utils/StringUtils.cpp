@@ -36,10 +36,17 @@ std::string urlDecode(const std::string& encoded)
 
 bool hasPathTraversal(const std::string& uri)
 {
-    std::string decodedUri     = urlDecode(uri);
-    bool        containsDotDot = decodedUri.find("..") != std::string::npos;
+    std::string decoded = urlDecode(uri);
 
-    return containsDotDot;
+    if (decoded.find("/../") != std::string::npos)
+        return true;
+    if (decoded.size() >= 3 && decoded.substr(decoded.size() - 3) == "/..")
+        return true;
+    if (decoded.size() >= 3 && decoded.substr(0, 3) == "../")
+        return true;
+    if (decoded == "..")
+        return true;
+    return false;
 }
 
 std::string extractQueryString(const std::string& uri)

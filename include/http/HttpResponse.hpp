@@ -9,6 +9,8 @@ struct HttpResponse {
     std::string                         status_msg;   // "OK", "Not Found", ...
     std::map<std::string, std::string>  headers;      // {"Content-Type": "text/html", ...}
     std::string                         body;
+
+    HttpResponse() : status_code(0) {}
 };
 
 #endif
