@@ -64,6 +64,26 @@ static bool isCgiRequest(const HttpRequest& request, const LocationConfig& locat
     return uriExtension == cgiExtension;
 }
 
+bool MethodHandler::isMethodAllowed(const std::string& method, const LocationConfig& location)
+{
+    const std::vector<std::string>& allowedMethods = location.getAllowedMethods();
+    return std::find(allowedMethods.begin(), allowedMethods.end(), method) != allowedMethods.end();
+}
+
+HttpResponse MethodHandler::buildError(int statusCode, const std::string& statusMessage)
+{
+    HttpResponse       response;
+    std::ostringstream contentLength;
+
+    response.status_code = statusCode;
+    response.status_msg  = statusMessage;
+    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
+    response.headers["Content-Type"] = "text/html";
+    contentLength << response.body.size();
+    response.headers["Content-Length"] = contentLength.str();
+    return response;
+}
+
 HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationConfig& location, const ServerConfig& server)
 {
     if (hasPathTraversal(request.uri))
@@ -103,24 +123,4 @@ HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationCon
         return handleDelete(request, location);
 
     return buildError(405, "Method Not Allowed");
-}
-
-bool MethodHandler::isMethodAllowed(const std::string& method, const LocationConfig& location)
-{
-    const std::vector<std::string>& allowedMethods = location.getAllowedMethods();
-    return std::find(allowedMethods.begin(), allowedMethods.end(), method) != allowedMethods.end();
-}
-
-HttpResponse MethodHandler::buildError(int statusCode, const std::string& statusMessage)
-{
-    HttpResponse       response;
-    std::ostringstream contentLength;
-
-    response.status_code = statusCode;
-    response.status_msg  = statusMessage;
-    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
-    response.headers["Content-Type"] = "text/html";
-    contentLength << response.body.size();
-    response.headers["Content-Length"] = contentLength.str();
-    return response;
 }

@@ -1,6 +1,20 @@
 #include "../../../include/http/CgiHandler.hpp"
 #include <sstream>
 
+HttpResponse CgiHandler::buildError(int statusCode, const std::string& statusMessage)
+{
+    HttpResponse       response;
+    std::ostringstream contentLengthStream;
+
+    response.status_code = statusCode;
+    response.status_msg  = statusMessage;
+    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
+    response.headers["Content-Type"] = "text/html";
+    contentLengthStream << response.body.size();
+    response.headers["Content-Length"] = contentLengthStream.str();
+    return response;
+}
+
 HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)
 {
     HttpResponse response;
@@ -71,19 +85,5 @@ HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)
     contentLengthStream << response.body.size();
     response.headers["Content-Length"] = contentLengthStream.str();
 
-    return response;
-}
-
-HttpResponse CgiHandler::buildError(int statusCode, const std::string& statusMessage)
-{
-    HttpResponse       response;
-    std::ostringstream contentLengthStream;
-
-    response.status_code = statusCode;
-    response.status_msg  = statusMessage;
-    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
-    response.headers["Content-Type"] = "text/html";
-    contentLengthStream << response.body.size();
-    response.headers["Content-Length"] = contentLengthStream.str();
     return response;
 }

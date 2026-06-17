@@ -1,22 +1,6 @@
 #include "../../../include/http/RequestParser.hpp"
 #include <sstream>
 
-HttpRequest RequestParser::parse(const std::string& rawRequest)
-{
-    HttpRequest request;
-
-    if (!isValid(rawRequest))
-        return request;
-
-    std::size_t firstLineEnd        = rawRequest.find("\r\n");
-    std::size_t headerBodySeparator = rawRequest.find("\r\n\r\n");
-
-    parseFirstLine(rawRequest.substr(0, firstLineEnd), request);
-    parseHeaders(rawRequest, request, firstLineEnd, headerBodySeparator);
-    parseBody(rawRequest, request, headerBodySeparator);
-    return request;
-}
-
 bool RequestParser::isValid(const std::string& rawRequest)
 {
     if (rawRequest.find("\r\n\r\n") == std::string::npos)
@@ -104,4 +88,20 @@ void RequestParser::parseBody(const std::string& rawRequest, HttpRequest& reques
                                std::size_t headerBodySeparator)
 {
     request.body = rawRequest.substr(headerBodySeparator + 4);
+}
+
+HttpRequest RequestParser::parse(const std::string& rawRequest)
+{
+    HttpRequest request;
+
+    if (!isValid(rawRequest))
+        return request;
+
+    std::size_t firstLineEnd        = rawRequest.find("\r\n");
+    std::size_t headerBodySeparator = rawRequest.find("\r\n\r\n");
+
+    parseFirstLine(rawRequest.substr(0, firstLineEnd), request);
+    parseHeaders(rawRequest, request, firstLineEnd, headerBodySeparator);
+    parseBody(rawRequest, request, headerBodySeparator);
+    return request;
 }
