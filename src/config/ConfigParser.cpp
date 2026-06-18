@@ -167,6 +167,11 @@ void ConfigParser::parseLocationDirective(LocationConfig &location)
         location.setCgiPath(current().value);
         advance();
     }
+    else if (name == "redirect")
+    {
+        location.setRedirectUrl(current().value);
+        advance();
+    }
     else
         throw std::runtime_error("Unknown location directive: " + name);
     expect(SEMICOLON);
