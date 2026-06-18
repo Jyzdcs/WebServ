@@ -34,7 +34,7 @@ void PollManager::addFd(int fd, short events) {
 };
 
 void PollManager::removeFd(int fd) {
-	int idx = findIndex(fd);
+	size_t idx = findIndex(fd);
 	if (idx < _fds.size()) {
 		_fds.erase(_fds.begin() + idx);
 	}
