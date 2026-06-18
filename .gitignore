@@ -3,5 +3,7 @@
 .DS_Store
 
 .vscode
+
+a.out
 # Personal concept notes (learn-concept skill)
 concepts/
