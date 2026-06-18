@@ -1,104 +1,107 @@
 #include "../../../include/http/RequestParser.hpp"
 #include <sstream>
 
-void RequestParser::isValid(const std::string& rawRequest)
+void RequestParser::parseRequestLine(const std::string& firstLine, HttpRequest& request)
 {
-    // Erreur: "GET / HTTP/1.1\r\nHost: localhost\r\n"  (headers jamais fermés)
-    if (rawRequest.find("\r\n\r\n") == std::string::npos)
-        throw ParseException(400, "Bad Request");
-
-    std::size_t firstLineEnd        = rawRequest.find("\r\n");
-    std::size_t headerBodySeparator = rawRequest.find("\r\n\r\n");
-    std::string firstLine           = rawRequest.substr(0, firstLineEnd);
-
-    std::istringstream firstLineStream(firstLine);
-    std::string        method, uri, version;
+    std::istringstream lineStream(firstLine);
+    std::string        extraToken;
 
     // Erreur: "GET /\r\n\r\n"  (version manquante, moins de 3 tokens)
-    if (!(firstLineStream >> method >> uri >> version))
+    if (!(lineStream >> request.method >> request.uri >> request.version))
         throw ParseException(400, "Bad Request");
 
-    std::string extraToken;
     // Erreur: "GET / HTTP/1.1 extra\r\n\r\n"  (4ème token sur la request-line)
-    if (firstLineStream >> extraToken)
+    if (lineStream >> extraToken)
         throw ParseException(400, "Bad Request");
+
+    // Erreur: "get / HTTP/1.1\r\n\r\n"  (méthode en minuscules)
+    for (std::size_t i = 0; i < request.method.size(); i++)
+        if (request.method[i] < 'A' || request.method[i] > 'Z')
+            throw ParseException(400, "Bad Request");
 
     // Erreur: "GET / MYPROTO/1.1\r\n\r\n"  (protocole inconnu)
-    if (version.substr(0, 5) != "HTTP/")
+    if (request.version.substr(0, 5) != "HTTP/")
         throw ParseException(400, "Bad Request");
 
     // Erreur: "GET / HTTP/2.0\r\nHost: localhost\r\n\r\n"  (version non supportée)
-    if (version != "HTTP/1.0" && version != "HTTP/1.1")
+    if (request.version != "HTTP/1.0" && request.version != "HTTP/1.1")
         throw ParseException(505, "HTTP Version Not Supported");
-
-    bool        hasHostHeader   = false;
-    std::size_t currentPosition = firstLineEnd + 2;
-
-    // vérifie chaque header : pas de tab après le colon, détecte la présence du header Host
-    // ex: "Host: localhost\r\nContent-Type: text/html\r\n" → deux passages dans la boucle
-    while (currentPosition < headerBodySeparator)
-    {
-        std::size_t lineEndPosition = rawRequest.find("\r\n", currentPosition);
-        std::string currentLine     = rawRequest.substr(currentPosition, lineEndPosition - currentPosition);
-
-        std::size_t colonPosition = currentLine.find(':');
-        if (colonPosition != std::string::npos)
-        {
-            // Erreur: "Host:\tlocalhost"  (tab juste après le colon)
-            bool hasTabAfterColon = (colonPosition + 1 < currentLine.size()
-                                     && currentLine[colonPosition + 1] == '\t');
-            if (hasTabAfterColon)
-                throw ParseException(400, "Bad Request");
-
-            // les noms de headers sont case-insensitive : host/HOST/HoSt sont tous valides
-            std::string headerName      = currentLine.substr(0, colonPosition);
-            std::string headerNameLower = headerName;
-            for (std::size_t i = 0; i < headerNameLower.size(); i++)
-                headerNameLower[i] = std::tolower(headerNameLower[i]);
-            if (headerNameLower == "host")
-                hasHostHeader = true;
-        }
-        currentPosition = lineEndPosition + 2;
-    }
-
-    // Erreur: "GET / HTTP/1.1\r\nContent-Type: text/html\r\n\r\n"  (pas de Host, obligatoire en HTTP/1.1)
-    if (version == "HTTP/1.1" && !hasHostHeader)
-        throw ParseException(400, "Bad Request");
 }
 
-void RequestParser::parseFirstLine(const std::string& firstLine, HttpRequest& request)
+void RequestParser::parseHeaderLine(const std::string& line,
+                                     std::string& headerKey, std::string& headerValue)
 {
-    std::istringstream lineStream(firstLine);
-    lineStream >> request.method;
-    lineStream >> request.uri;
-    lineStream >> request.version;
+    std::size_t colonPosition = line.find(':');
+    if (colonPosition == std::string::npos)
+        return;
+
+    // Erreur: "Host:\tlocalhost"  (tab juste après le colon)
+    if (colonPosition + 1 < line.size() && line[colonPosition + 1] == '\t')
+        throw ParseException(400, "Bad Request");
+
+    headerKey = line.substr(0, colonPosition);
+
+    std::size_t valueStart = colonPosition + 1;
+    while (valueStart < line.size() && line[valueStart] == ' ')
+        valueStart++;
+
+    headerValue = (valueStart < line.size()) ? line.substr(valueStart) : "";
+}
+
+void RequestParser::validateHostHeader(const std::string& headerValue, bool& hasHostHeader)
+{
+    // Erreur: "Host:\r\n" ou "Host:   \r\n"  (valeur vide ou whitespace-only)
+    if (headerValue.empty())
+        throw ParseException(400, "Bad Request");
+
+    // Erreur: double Host header
+    if (hasHostHeader)
+        throw ParseException(400, "Bad Request");
+
+    hasHostHeader = true;
 }
 
 void RequestParser::parseHeaders(const std::string& rawRequest, HttpRequest& request,
                                   std::size_t firstLineEnd, std::size_t headerBodySeparator)
 {
-    std::size_t currentPosition = firstLineEnd + 2;
-    std::size_t headersEnd      = headerBodySeparator;
+    bool        hasHostHeader          = false;
+    bool        hasContentLengthHeader = false;
+    std::size_t currentPosition        = firstLineEnd + 2;
 
-    while (currentPosition < headersEnd)
+    while (currentPosition < headerBodySeparator)
     {
         std::size_t lineEndPosition = rawRequest.find("\r\n", currentPosition);
         std::string currentLine     = rawRequest.substr(currentPosition, lineEndPosition - currentPosition);
 
-        std::size_t colonPosition = currentLine.find(':');
-        if (colonPosition != std::string::npos)
+        std::string headerKey;
+        std::string headerValue;
+        RequestParser::parseHeaderLine(currentLine, headerKey, headerValue);
+
+        if (!headerKey.empty())
         {
-            std::string headerKey   = currentLine.substr(0, colonPosition);
-            std::string headerValue;
-            std::size_t valueStart  = colonPosition + 1;
-            while (valueStart < currentLine.size() && currentLine[valueStart] == ' ')
-                valueStart++;
-            if (valueStart < currentLine.size())
-                headerValue = currentLine.substr(valueStart);
             request.headers[headerKey] = headerValue;
+
+            // les noms de headers sont case-insensitive : host/HOST/HoSt sont tous valides pour NGINX
+            std::string headerKeyLower = headerKey;
+            for (std::size_t i = 0; i < headerKeyLower.size(); i++)
+                headerKeyLower[i] = std::tolower(headerKeyLower[i]);
+            if (headerKeyLower == "host")
+                RequestParser::validateHostHeader(headerValue, hasHostHeader);
+
+            // Erreur: double Content-Length
+            if (headerKeyLower == "content-length")
+            {
+                if (hasContentLengthHeader)
+                    throw ParseException(400, "Bad Request");
+                hasContentLengthHeader = true;
+            }
         }
         currentPosition = lineEndPosition + 2;
     }
+
+    // Erreur: "GET / HTTP/1.1\r\nContent-Type: text/html\r\n\r\n"  (pas de Host, obligatoire en HTTP/1.1)
+    if (request.version == "HTTP/1.1" && !hasHostHeader)
+        throw ParseException(400, "Bad Request");
 }
 
 void RequestParser::parseBody(const std::string& rawRequest, HttpRequest& request,
@@ -109,14 +112,18 @@ void RequestParser::parseBody(const std::string& rawRequest, HttpRequest& reques
 
 HttpRequest RequestParser::parse(const std::string& rawRequest)
 {
-    isValid(rawRequest);
-
-    HttpRequest request;
-    std::size_t firstLineEnd        = rawRequest.find("\r\n");
     std::size_t headerBodySeparator = rawRequest.find("\r\n\r\n");
 
-    parseFirstLine(rawRequest.substr(0, firstLineEnd), request);
-    parseHeaders(rawRequest, request, firstLineEnd, headerBodySeparator);
-    parseBody(rawRequest, request, headerBodySeparator);
+    // Erreur: "GET / HTTP/1.1\r\nHost: localhost\r\n"  (headers jamais fermés)
+    if (headerBodySeparator == std::string::npos)
+        throw ParseException(400, "Bad Request");
+
+    HttpRequest request;
+    std::size_t firstLineEnd = rawRequest.find("\r\n");
+
+    RequestParser::parseRequestLine(rawRequest.substr(0, firstLineEnd), request);
+    RequestParser::parseHeaders(rawRequest, request, firstLineEnd, headerBodySeparator);
+    RequestParser::parseBody(rawRequest, request, headerBodySeparator);
+
     return request;
 }

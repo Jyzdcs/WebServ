@@ -10,6 +10,7 @@ public:
     class ParseException : public std::exception {
     public:
         ParseException(int code, const std::string& msg) : _code(code), _msg(msg) {}
+        ~ParseException() throw() {}
         int         getCode() const { return _code; }
         const char* what()    const throw() { return _msg.c_str(); }
     private:
@@ -20,8 +21,9 @@ public:
     HttpRequest parse(const std::string& raw);
 
 private:
-    void isValid(const std::string& raw);
-    void parseFirstLine(const std::string& line, HttpRequest& req);
+    void parseRequestLine(const std::string& firstLine, HttpRequest& req);
+    void parseHeaderLine(const std::string& line, std::string& key, std::string& value);
+    void validateHostHeader(const std::string& value, bool& hasHostHeader);
     void parseHeaders(const std::string& raw, HttpRequest& req, std::size_t firstLineEnd, std::size_t headerBodySep);
     void parseBody(const std::string& raw, HttpRequest& req, std::size_t headerBodySep);
 };
