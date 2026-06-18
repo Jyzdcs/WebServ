@@ -45,7 +45,10 @@ void RequestParser::parseHeaderLine(const std::string& line,
     while (valueStart < line.size() && line[valueStart] == ' ')
         valueStart++;
 
-    headerValue = (valueStart < line.size()) ? line.substr(valueStart) : "";
+    if (valueStart < line.size())
+        headerValue = line.substr(valueStart);
+    else
+        headerValue = "";
 }
 
 void RequestParser::validateHostHeader(const std::string& headerValue, bool& hasHostHeader)
