@@ -3,7 +3,7 @@ CXX     = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 
 SRCS    = $(shell find src -name "*.cpp")
-OBJS    = $(SRCS:.cpp=.o)
+OBJS    = $(SRCS:src/%.cpp=obj/%.o)
 INCS    = -I include
 
 all: $(NAME)
@@ -11,11 +11,12 @@ all: $(NAME)
 $(NAME): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
 
-%.o: %.cpp
+obj/%.o: src/%.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS)
+	rm -rf obj
 
 fclean: clean
 	rm -f $(NAME)

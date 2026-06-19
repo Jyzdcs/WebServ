@@ -1,4 +1,5 @@
 *.o
+obj/
 
 # test binaries (built locally from tests/)
 test_parser
