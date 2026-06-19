@@ -37,7 +37,7 @@ static HttpResponse applyCustomErrorPage(const HttpResponse& response,
                                           const ServerConfig& server,
                                           const LocationConfig& location)
 {
-    if (response.status_code < 400 || location.getRoot().empty())
+    if (response.status_code < 400)
         return response;
 
     const std::map<int, std::string>& errorPages = server.getErrorPages();
@@ -53,7 +53,7 @@ static HttpResponse applyCustomErrorPage(const HttpResponse& response,
     HttpResponse customResponse = response;
     customResponse.body = "";
     char    buf[4096];
-    ssize_t bytesRead;
+    ssize_t bytesRead = 0;
 
     while ((bytesRead = read(fd, buf, sizeof(buf))) > 0)
         customResponse.body.append(buf, bytesRead);
@@ -79,7 +79,7 @@ HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationCon
         response = buildHttpError(400, "Bad Request");
     else if (location.getPath().empty())
         response = buildHttpError(404, "Not Found");
-    else if (!isMethodAllowed(request.method, location))
+    else if (!MethodHandler::isMethodAllowed(request.method, location))
         response = buildHttpError(405, "Method Not Allowed");
     else if (server.getMaxBodySize() > 0 && request.body.size() > server.getMaxBodySize())
         response = buildHttpError(413, "Payload Too Large");
