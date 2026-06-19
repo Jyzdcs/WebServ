@@ -8,6 +8,8 @@ std::string ResponseBuilder::build(const HttpResponse& response)
 
     rawOutput << "HTTP/1.1 " << response.status_code << " " << response.status_msg << "\r\n";
 
+    rawOutput << "Server: webserv/1.0\r\n";
+
     time_t     now = time(NULL);
     struct tm* gmt = gmtime(&now);
     char       dateBuf[64];
