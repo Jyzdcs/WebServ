@@ -20,23 +20,14 @@ static HttpResponse writeBodyToFile(const std::string& destPath, const std::stri
         return buildHttpError(500, "Internal Server Error");
     }
 
-    const char* data         = body.data();
-    std::size_t totalToWrite = body.size();
-    std::size_t totalWritten = 0;
-
-    while (totalWritten < totalToWrite)
+    if (!writeFdFromString(fd, body))
     {
-        ssize_t written = write(fd, data + totalWritten, totalToWrite - totalWritten);
-        if (written <= 0)
-        {
-            close(fd);
-            return buildHttpError(507, "Insufficient Storage");
-        }
-        totalWritten += static_cast<std::size_t>(written);
+        close(fd);
+        return buildHttpError(507, "Insufficient Storage");
     }
     close(fd);
 
-    HttpResponse response    = buildHttpCreated("");
+    HttpResponse response        = buildHttpCreated("");
     response.headers["Location"] = "/" + filename;
     return response;
 }

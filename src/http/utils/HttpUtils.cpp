@@ -1,6 +1,24 @@
 #include "../../../include/http/utils/HttpUtils.hpp"
 #include <unistd.h>
 
+// écrit le contenu de data dans fd en boucle jusqu'à épuisement
+// retourne true si tout a été écrit, false si write() a échoué
+bool writeFdFromString(int fd, const std::string& data)
+{
+    const char* ptr          = data.data();
+    std::size_t totalToWrite = data.size();
+    std::size_t totalWritten = 0;
+
+    while (totalWritten < totalToWrite)
+    {
+        ssize_t written = write(fd, ptr + totalWritten, totalToWrite - totalWritten);
+        if (written <= 0)
+            return false;
+        totalWritten += static_cast<std::size_t>(written);
+    }
+    return true;
+}
+
 bool readFdToString(int fd, std::string& body)
 {
     char    buf[4096];
