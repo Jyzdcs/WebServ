@@ -1,5 +1,5 @@
 #include "../../../include/http/MethodHandler.hpp"
-#include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/StringUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
@@ -50,12 +50,7 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& request, const Locatio
     }
     close(fileDescriptor);
 
-    HttpResponse       response;
-    std::ostringstream contentLength;
-    response.status_code             = 201;
-    response.status_msg              = "Created";
-    response.headers["Location"]     = "/" + filename;
-    contentLength << response.body.size();
-    response.headers["Content-Length"] = contentLength.str();
+    HttpResponse response = buildHttpCreated("");
+    response.headers["Location"] = "/" + filename;
     return response;
 }

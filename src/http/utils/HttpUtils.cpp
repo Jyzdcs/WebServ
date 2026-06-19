@@ -1,28 +1,15 @@
 #include "../../../include/http/utils/HttpUtils.hpp"
-#include <sstream>
+#include <unistd.h>
 
-HttpResponse buildHttpError(int statusCode, const std::string& statusMessage)
+bool readFdToString(int fd, std::string& body)
 {
-    HttpResponse       response;
-    std::ostringstream contentLength;
+    char    buf[4096];
+    ssize_t bytesRead = 0;
 
-    response.status_code = statusCode;
-    response.status_msg  = statusMessage;
-    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
-    response.headers["Content-Type"] = "text/html";
-    contentLength << response.body.size();
-    response.headers["Content-Length"] = contentLength.str();
-    return response;
-}
-
-HttpResponse buildRedirect(const std::string& url)
-{
-    HttpResponse response;
-    response.status_code              = 301;
-    response.status_msg               = "Moved Permanently";
-    response.headers["Location"]      = url;
-    response.headers["Content-Length"] = "0";
-    return response;
+    while ((bytesRead = read(fd, buf, sizeof(buf))) > 0)
+        body.append(buf, bytesRead);
+    close(fd);
+    return bytesRead == 0;
 }
 
 std::string getContentType(const std::string& filePath)

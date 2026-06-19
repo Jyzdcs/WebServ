@@ -1,5 +1,5 @@
 #include "../../../include/http/CgiHandler.hpp"
-#include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>

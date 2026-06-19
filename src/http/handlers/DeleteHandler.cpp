@@ -1,5 +1,5 @@
 #include "../../../include/http/MethodHandler.hpp"
-#include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include <unistd.h>
 #include <sys/stat.h>
 #include <cerrno>
@@ -25,11 +25,6 @@ HttpResponse MethodHandler::handleDelete(const HttpRequest& request, const Locat
         return buildHttpError(403, "Forbidden");
 
     if (unlink(filePath.c_str()) == 0)
-    {
-        HttpResponse response;
-        response.status_code = 204;
-        response.status_msg  = "No Content";
-        return response;
-    }
+        return buildHttpNoContent();
     return buildHttpError(403, "Forbidden");
 }

@@ -3,7 +3,7 @@
 #include "../../include/http/Router.hpp"
 #include "../../include/http/MethodHandler.hpp"
 #include "../../include/http/ResponseBuilder.hpp"
-#include "../../include/http/utils/HttpUtils.hpp"
+#include "../../include/http/builders/HttpBuilders.hpp"
 
 std::string processHttp(const std::string& rawRequest, const ServerConfig& server)
 {

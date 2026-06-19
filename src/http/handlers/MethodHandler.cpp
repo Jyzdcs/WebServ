@@ -1,5 +1,6 @@
 #include "../../../include/http/MethodHandler.hpp"
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/HttpUtils.hpp"
 #include "../../../include/http/utils/StringUtils.hpp"
 #include <algorithm>
@@ -61,17 +62,8 @@ static HttpResponse applyCustomErrorPage(const HttpResponse& response,
 
     HttpResponse customResponse = response;
     customResponse.body = "";
-    char    buf[4096];
-    ssize_t bytesRead = 0;
-
-    while ((bytesRead = read(fd, buf, sizeof(buf))) > 0)
-        customResponse.body.append(buf, bytesRead);
-    if (bytesRead < 0)
-    {
-        close(fd);
+    if (!readFdToString(fd, customResponse.body))
         return response;
-    }
-    close(fd);
 
     customResponse.headers["Content-Type"] = getContentType(filePath);
     std::ostringstream contentLength;
@@ -116,4 +108,3 @@ HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationCon
     // remplace le body d'erreur par la page HTML custom si configurée
     return applyCustomErrorPage(response, server, location);
 }
-2
