@@ -110,7 +110,25 @@ void RequestParser::parseHeaders(const std::string& rawRequest, HttpRequest& req
 void RequestParser::parseBody(const std::string& rawRequest, HttpRequest& request,
                                std::size_t headerBodySeparator)
 {
-    request.body = rawRequest.substr(headerBodySeparator + 4);
+    std::string rawBody = rawRequest.substr(headerBodySeparator + 4);
+
+    std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Length");
+    if (it != request.headers.end())
+    {
+        const std::string& clValue = it->second;
+
+        // Erreur: "Content-Length: abc" ou "Content-Length: -1"  (pas un entier positif)
+        for (std::size_t i = 0; i < clValue.size(); i++)
+            if (clValue[i] < '0' || clValue[i] > '9')
+                throw ParseException(400, "Bad Request");
+
+        std::istringstream iss(clValue);
+        std::size_t        contentLength = 0;
+        iss >> contentLength;
+        request.body = rawBody.substr(0, contentLength);
+    }
+    else
+        request.body = rawBody;
 }
 
 HttpRequest RequestParser::parse(const std::string& rawRequest)
