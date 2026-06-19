@@ -1,18 +1,11 @@
 #include "../../../include/http/MethodHandler.hpp"
 #include "../../../include/http/builders/HttpBuilders.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <unistd.h>
 #include <sys/stat.h>
 #include <cerrno>
 
-// strip le query string de l'URI
-// ex: "/files/photo.jpg?v=2" → "/files/photo.jpg"
-static std::string extractUriPath(const std::string& uri)
-{
-    std::size_t queryPos = uri.find('?');
-    if (queryPos != std::string::npos)
-        return uri.substr(0, queryPos);
-    return uri;
-}
 
 // vérifie l'existence du fichier et le supprime
 // retourne 204 No Content ou une erreur

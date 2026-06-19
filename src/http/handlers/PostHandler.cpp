@@ -1,19 +1,11 @@
 #include "../../../include/http/MethodHandler.hpp"
 #include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/StringUtils.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
 
-// strip le query string de l'URI
-// ex: "/upload/file.txt?foo=bar" → "/upload/file.txt"
-static std::string extractUriPath(const std::string& uri)
-{
-    std::size_t queryPos = uri.find('?');
-    if (queryPos != std::string::npos)
-        return uri.substr(0, queryPos);
-    return uri;
-}
 
 // ouvre le fichier de destination et écrit le body dedans
 // retourne 201 Created avec Location, ou une erreur

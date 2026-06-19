@@ -1,6 +1,7 @@
 #include "../../../include/http/MethodHandler.hpp"
 #include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -35,15 +36,6 @@ static HttpResponse buildAutoindex(const std::string& directoryPath, const std::
     return buildHttpOk(listingHtml, "text/html");
 }
 
-// strip le query string de l'URI
-// ex: "/index.html?foo=bar" → "/index.html"
-static std::string extractUriPath(const std::string& uri)
-{
-    std::size_t queryPos = uri.find('?');
-    if (queryPos != std::string::npos)
-        return uri.substr(0, queryPos);
-    return uri;
-}
 
 // retourne le path complet du fichier index s'il existe, sinon ""
 // ex: dirPath="/var/www/", index="index.html" → "/var/www/index.html" si le fichier existe

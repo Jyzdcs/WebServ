@@ -49,6 +49,14 @@ bool hasPathTraversal(const std::string& uri)
     return false;
 }
 
+std::string extractUriPath(const std::string& uri)
+{
+    std::size_t queryPos = uri.find('?');
+    if (queryPos != std::string::npos)
+        return uri.substr(0, queryPos);
+    return uri;
+}
+
 std::string extractQueryString(const std::string& uri)
 {
     std::size_t queryStart = uri.find('?');
