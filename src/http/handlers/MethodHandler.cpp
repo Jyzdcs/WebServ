@@ -84,13 +84,7 @@ HttpResponse MethodHandler::handle(const HttpRequest& request, const LocationCon
     else if (server.getMaxBodySize() > 0 && request.body.size() > server.getMaxBodySize())
         response = buildHttpError(413, "Payload Too Large");
     else if (!location.getRedirectUrl().empty())
-    {
-        response.status_code               = 301;
-        response.status_msg               = "Moved Permanently";
-        response.headers["Location"]      = location.getRedirectUrl();
-        response.headers["Content-Length"] = "0";
-        return response;
-    }
+        return buildRedirect(location.getRedirectUrl());
     else if (isCgiRequest(request, location))
     {
         CgiHandler cgiHandler;

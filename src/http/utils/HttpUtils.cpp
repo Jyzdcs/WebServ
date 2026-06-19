@@ -15,6 +15,16 @@ HttpResponse buildHttpError(int statusCode, const std::string& statusMessage)
     return response;
 }
 
+HttpResponse buildRedirect(const std::string& url)
+{
+    HttpResponse response;
+    response.status_code              = 301;
+    response.status_msg               = "Moved Permanently";
+    response.headers["Location"]      = url;
+    response.headers["Content-Length"] = "0";
+    return response;
+}
+
 std::string getContentType(const std::string& filePath)
 {
     std::string fileExtension;

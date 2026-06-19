@@ -5,6 +5,7 @@
 #include <string>
 
 HttpResponse buildHttpError(int statusCode, const std::string& statusMessage);
+HttpResponse buildRedirect(const std::string& url);
 std::string  getContentType(const std::string& filePath);
 
 #endif
