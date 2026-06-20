@@ -82,12 +82,14 @@ void RequestParser::parseHeaders(const std::string& rawRequest, HttpRequest& req
 
         if (!headerKey.empty())
         {
-            request.headers[headerKey] = headerValue;
-
             // les noms de headers sont case-insensitive : host/HOST/HoSt sont tous valides pour NGINX
+            // on normalise en lowercase pour que tous les lookups (parseBody, env.cpp) fonctionnent
+            // quelle que soit la casse envoyée par le client
             std::string headerKeyLower = headerKey;
             for (std::size_t i = 0; i < headerKeyLower.size(); i++)
-                headerKeyLower[i] = std::tolower(headerKeyLower[i]);
+                headerKeyLower[i] = std::tolower(static_cast<unsigned char>(headerKeyLower[i]));
+
+            request.headers[headerKeyLower] = headerValue;
             if (headerKeyLower == "host")
                 RequestParser::validateHostHeader(headerValue, hasHostHeader);
 
@@ -112,7 +114,7 @@ void RequestParser::parseBody(const std::string& rawRequest, HttpRequest& reques
 {
     std::string rawBody = rawRequest.substr(headerBodySeparator + 4);
 
-    std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Length");
+    std::map<std::string, std::string>::const_iterator it = request.headers.find("content-length");
     if (it != request.headers.end())
     {
         const std::string& clValue = it->second;

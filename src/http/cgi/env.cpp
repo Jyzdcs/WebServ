@@ -15,7 +15,7 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
 
     std::map<std::string, std::string>::const_iterator headerIt;
 
-    headerIt = request.headers.find("Content-Type");
+    headerIt = request.headers.find("content-type");
     if (headerIt != request.headers.end())
         envVars.push_back("CONTENT_TYPE=" + headerIt->second);
     else
@@ -30,7 +30,7 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
     else
         envVars.push_back("CONTENT_LENGTH=0");
 
-    headerIt = request.headers.find("Host");
+    headerIt = request.headers.find("host");
     if (headerIt != request.headers.end())
         envVars.push_back("HTTP_HOST=" + headerIt->second);
 
