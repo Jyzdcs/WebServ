@@ -39,7 +39,7 @@ static HttpRequest makeGet(const std::string& uri, const std::string& host = "lo
     req.method  = "GET";
     req.uri     = uri;
     req.version = "HTTP/1.1";
-    req.headers["Host"] = host;
+    req.headers["host"] = host;
     return req;
 }
 
@@ -51,8 +51,8 @@ static HttpRequest makePost(const std::string& uri,
     req.method  = "POST";
     req.uri     = uri;
     req.version = "HTTP/1.1";
-    req.headers["Host"]         = "localhost";
-    req.headers["Content-Type"] = ctype;
+    req.headers["host"]         = "localhost";
+    req.headers["content-type"] = ctype;
     req.body = body;
     return req;
 }

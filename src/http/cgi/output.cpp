@@ -1,4 +1,5 @@
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include <sstream>
 
 HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)
@@ -10,17 +11,9 @@ HttpResponse CgiHandler::parseOutput(const std::string& cgiOutput)
     if (separatorPos == std::string::npos)
         separatorPos = cgiOutput.find("\n\n");
 
+    // Pas de séparateur header/body → tout le output est le body
     if (separatorPos == std::string::npos)
-    {
-        std::ostringstream contentLengthStream;
-        response.status_code = 200;
-        response.status_msg  = "OK";
-        response.body        = cgiOutput;
-        response.headers["Content-Type"] = "text/html";
-        contentLengthStream << response.body.size();
-        response.headers["Content-Length"] = contentLengthStream.str();
-        return response;
-    }
+        return buildHttpOk(cgiOutput, "text/html");
 
     std::size_t bodyStart = separatorPos + (usesDoubleCRLF ? 4 : 2);
 

@@ -1,18 +1,33 @@
 #include "../../../include/http/utils/HttpUtils.hpp"
-#include <sstream>
+#include <unistd.h>
 
-HttpResponse buildHttpError(int statusCode, const std::string& statusMessage)
+// écrit le contenu de data dans fd en boucle jusqu'à épuisement
+// retourne true si tout a été écrit, false si write() a échoué
+bool writeFdFromString(int fd, const std::string& data)
 {
-    HttpResponse       response;
-    std::ostringstream contentLength;
+    const char* ptr          = data.data();
+    std::size_t totalToWrite = data.size();
+    std::size_t totalWritten = 0;
 
-    response.status_code = statusCode;
-    response.status_msg  = statusMessage;
-    response.body        = "<html><body><h1>" + statusMessage + "</h1></body></html>";
-    response.headers["Content-Type"] = "text/html";
-    contentLength << response.body.size();
-    response.headers["Content-Length"] = contentLength.str();
-    return response;
+    while (totalWritten < totalToWrite)
+    {
+        ssize_t written = write(fd, ptr + totalWritten, totalToWrite - totalWritten);
+        if (written <= 0)
+            return false;
+        totalWritten += static_cast<std::size_t>(written);
+    }
+    return true;
+}
+
+bool readFdToString(int fd, std::string& body)
+{
+    char    buf[4096];
+    ssize_t bytesRead = 0;
+
+    while ((bytesRead = read(fd, buf, sizeof(buf))) > 0)
+        body.append(buf, bytesRead);
+    close(fd);
+    return bytesRead == 0;
 }
 
 std::string getContentType(const std::string& filePath)

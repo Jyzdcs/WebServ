@@ -28,7 +28,7 @@ static void test_get_simple()
     check("GET simple: method",  req.method  == "GET");
     check("GET simple: uri",     req.uri     == "/index.html");
     check("GET simple: version", req.version == "HTTP/1.1");
-    check("GET simple: host header", req.headers["Host"] == "localhost");
+    check("GET simple: host header", req.headers["host"] == "localhost");
     check("GET simple: body vide", req.body == "");
 }
 
@@ -45,7 +45,7 @@ static void test_post_with_body()
 
     check("POST body: method",  req.method == "POST");
     check("POST body: uri",     req.uri    == "/upload");
-    check("POST body: Content-Length header", req.headers["Content-Length"] == "27");
+    check("POST body: Content-Length header", req.headers["content-length"] == "27");
     check("POST body: body", req.body == "username=toto&password=1234");
 }
 
@@ -53,7 +53,8 @@ static void test_invalid_no_separator()
 {
     RequestParser parser;
     std::string raw = "GET /index.html HTTP/1.1\r\nHost: localhost";
-    HttpRequest req = parser.parse(raw);
+    HttpRequest req;
+    try { req = parser.parse(raw); } catch (const RequestParser::ParseException&) {}
 
     check("Invalide sans separator: method vide", req.method.empty());
 }
@@ -62,7 +63,8 @@ static void test_invalid_bad_version()
 {
     RequestParser parser;
     std::string raw = "GET /index.html NOTHTTP\r\n\r\n";
-    HttpRequest req = parser.parse(raw);
+    HttpRequest req;
+    try { req = parser.parse(raw); } catch (const RequestParser::ParseException&) {}
 
     check("Invalide mauvaise version: method vide", req.method.empty());
 }
@@ -71,7 +73,8 @@ static void test_invalid_missing_uri()
 {
     RequestParser parser;
     std::string raw = "GET\r\n\r\n";
-    HttpRequest req = parser.parse(raw);
+    HttpRequest req;
+    try { req = parser.parse(raw); } catch (const RequestParser::ParseException&) {}
 
     check("Invalide uri manquante: method vide", req.method.empty());
 }
@@ -87,8 +90,8 @@ static void test_multiple_headers()
         "\r\n";
     HttpRequest req = parser.parse(raw);
 
-    check("Multi-headers: Accept",     req.headers["Accept"]     == "text/html");
-    check("Multi-headers: Connection", req.headers["Connection"] == "keep-alive");
+    check("Multi-headers: Accept",     req.headers["accept"]     == "text/html");
+    check("Multi-headers: Connection", req.headers["connection"] == "keep-alive");
 }
 
 static void test_query_string()
@@ -111,7 +114,7 @@ static void test_header_value_with_colon()
         "\r\n";
     HttpRequest req = parser.parse(raw);
 
-    check("Header avec colon: valeur correcte", req.headers["Date"] == "Mon, 16 Jun 2026 00:00:00 GMT");
+    check("Header avec colon: valeur correcte", req.headers["date"] == "Mon, 16 Jun 2026 00:00:00 GMT");
 }
 
 static void test_post_empty_body()
@@ -150,7 +153,8 @@ static void test_root_uri()
 static void test_invalid_empty()
 {
     RequestParser parser;
-    HttpRequest req = parser.parse("");
+    HttpRequest req;
+    try { req = parser.parse(""); } catch (const RequestParser::ParseException&) {}
 
     check("Invalide string vide: method vide", req.method.empty());
 }
@@ -159,7 +163,8 @@ static void test_invalid_extra_token_first_line()
 {
     RequestParser parser;
     std::string raw = "GET /index.html HTTP/1.1 EXTRA\r\n\r\n";
-    HttpRequest req = parser.parse(raw);
+    HttpRequest req;
+    try { req = parser.parse(raw); } catch (const RequestParser::ParseException&) {}
 
     check("Invalide token en trop: method vide", req.method.empty());
 }
@@ -169,14 +174,15 @@ static void test_header_no_space_after_colon()
     std::string raw = "GET / HTTP/1.1\r\nHost:localhost\r\n\r\n";
     HttpRequest req = parser.parse(raw);
 
-    check("Header sans espace: valeur correcte", req.headers["Host"] == "localhost");
+    check("Header sans espace: valeur correcte", req.headers["host"] == "localhost");
 }
 
 static void test_header_tab_after_colon()
 {
     RequestParser parser;
     std::string raw = "GET / HTTP/1.1\r\nHost:\tlocalhost\r\n\r\n";
-    HttpRequest req = parser.parse(raw);
+    HttpRequest req;
+    try { req = parser.parse(raw); } catch (const RequestParser::ParseException&) {}
 
     check("Header avec tab: rejeté comme nginx", req.method.empty());
 }
@@ -185,7 +191,8 @@ static void test_http11_without_host()
 {
     RequestParser parser;
     std::string raw = "GET / HTTP/1.1\r\n\r\n";
-    HttpRequest req = parser.parse(raw);
+    HttpRequest req;
+    try { req = parser.parse(raw); } catch (const RequestParser::ParseException&) {}
 
     check("HTTP/1.1 sans Host: rejeté comme nginx", req.method.empty());
 }
