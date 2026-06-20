@@ -18,7 +18,7 @@ std::string processHttp(const std::string& rawRequest, const ServerConfig& serve
         MethodHandler  handler;
         HttpResponse   response = handler.handle(request, location, server);
         return builder.build(response);
-    } 
+    }
     catch (const RequestParser::ParseException& e)
     {
         return builder.build(buildHttpError(e.getCode(), e.what()));
