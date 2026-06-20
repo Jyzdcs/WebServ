@@ -2,6 +2,9 @@
 #include "../../../include/config/ServerConfig.hpp"
 #include "../../../include/config/LocationConfig.hpp"
 #include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <sys/stat.h>
 
 static int passed = 0;
 static int failed = 0;
@@ -97,6 +100,13 @@ static void test_with_root_location_uses_error_page()
 
 int main()
 {
+    // crée /tmp/www/errors/404.html avec le contenu attendu par les tests
+    ::mkdir("/tmp/www", 0755);
+    ::mkdir("/tmp/www/errors", 0755);
+    std::ofstream f("/tmp/www/errors/404.html");
+    f << "<html><body>Custom 404</body></html>\n";
+    f.close();
+
     test_no_root_location_skips_error_page();
     test_with_root_location_uses_error_page();
 
