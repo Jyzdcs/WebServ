@@ -72,12 +72,12 @@ int main()
         check("POST sans upload_store: 500", res.status_code == 500);
     }
 
-    // ── CAS 3 : POST body vide → 400 ────────────────────────────────
+    // ── CAS 3 : POST body vide → 201 (fichier vide créé, valide HTTP) ─
     {
         LocationConfig loc = makeLoc("/tmp");
         MethodHandler handler;
         HttpResponse res = handler.handle(makeReq("POST", "/uploads/empty.txt", ""), loc, server);
-        check("POST body vide: 400", res.status_code == 400);
+        check("POST body vide: 201", res.status_code == 201);
     }
 
     // ── CAS 4 : POST URI sans filename → 400 ────────────────────────

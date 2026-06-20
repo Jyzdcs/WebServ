@@ -23,13 +23,22 @@ static HttpRequest makeReq(const std::string& method, const std::string& uri,
     req.method  = method;
     req.uri     = uri;
     req.version = "HTTP/1.1";
-    req.headers["Host"] = host;
+    req.headers["host"] = host;
     if (!body.empty())
     {
         req.body = body;
-        req.headers["Content-Type"] = "text/plain";
+        req.headers["content-type"] = "text/plain";
     }
     return req;
+}
+
+// wrapper qui absorbe ParseException — utilisé pour les tests de parsing invalide
+static HttpRequest safeParse(const std::string& raw)
+{
+    RequestParser p;
+    HttpRequest   r;
+    try { r = p.parse(raw); } catch (const RequestParser::ParseException&) {}
+    return r;
 }
 
 static LocationConfig makeGetLoc(const std::string& root = "www")
@@ -67,93 +76,82 @@ int main()
 
     // requête vide
     {
-        RequestParser p;
-        HttpRequest r = p.parse("");
+        HttpRequest r = safeParse("");
         check("parse: string vide → method vide", r.method.empty());
     }
 
     // pas de \r\n\r\n
     {
-        RequestParser p;
-        HttpRequest r = p.parse("GET / HTTP/1.1\r\nHost: x");
+        HttpRequest r = safeParse("GET / HTTP/1.1\r\nHost: x");
         check("parse: pas de separateur → rejeté", r.method.empty());
     }
 
     // méthode avec espace
     {
-        RequestParser p;
-        HttpRequest r = p.parse("G ET / HTTP/1.1\r\nHost: x\r\n\r\n");
+        HttpRequest r = safeParse("G ET / HTTP/1.1\r\nHost: x\r\n\r\n");
         check("parse: methode avec espace → rejeté", r.method.empty());
     }
 
     // trop de tokens sur la première ligne
     {
-        RequestParser p;
-        HttpRequest r = p.parse("GET / HTTP/1.1 EXTRA\r\nHost: x\r\n\r\n");
+        HttpRequest r = safeParse("GET / HTTP/1.1 EXTRA\r\nHost: x\r\n\r\n");
         check("parse: trop de tokens ligne 1 → rejeté", r.method.empty());
     }
 
     // tab après colon (Nginx rejette)
     {
-        RequestParser p;
-        HttpRequest r = p.parse("GET / HTTP/1.1\r\nHost:\tlocalhost\r\n\r\n");
+        HttpRequest r = safeParse("GET / HTTP/1.1\r\nHost:\tlocalhost\r\n\r\n");
         check("parse: tab apres colon → rejeté", r.method.empty());
     }
 
     // HTTP/1.1 sans Host
     {
-        RequestParser p;
-        HttpRequest r = p.parse("GET / HTTP/1.1\r\nAccept: *\r\n\r\n");
+        HttpRequest r = safeParse("GET / HTTP/1.1\r\nAccept: *\r\n\r\n");
         check("parse: HTTP/1.1 sans Host → rejeté", r.method.empty());
     }
 
     // version invalide
     {
-        RequestParser p;
-        HttpRequest r = p.parse("GET / HTTPS/1.1\r\nHost: x\r\n\r\n");
+        HttpRequest r = safeParse("GET / HTTPS/1.1\r\nHost: x\r\n\r\n");
         check("parse: version invalide → rejeté", r.method.empty());
     }
 
     // header avec null byte dans la valeur (survit au parsing sans crash)
     {
-        RequestParser p;
         // Use the length-based constructor to include the embedded null byte —
         // the const char* constructor would stop at the first \0.
         const char buffer[] = "GET / HTTP/1.1\r\nHost: local\x00host\r\n\r\n";
         std::string raw(buffer, sizeof(buffer) - 1);
-        HttpRequest r = p.parse(raw);
+        safeParse(raw);
         check("parse: header avec null → pas de crash", true);
     }
 
     // URI très longue (8KB)
     {
-        RequestParser p;
         std::string uri(8192, 'a');
         std::string raw = "GET /" + uri + " HTTP/1.1\r\nHost: x\r\n\r\n";
-        HttpRequest r = p.parse(raw);
+        safeParse(raw);
         check("parse: URI 8KB → pas de crash", true);
     }
 
     // beaucoup de headers
     {
-        RequestParser p;
         std::string raw = "GET / HTTP/1.1\r\nHost: x\r\n";
         for (int i = 0; i < 100; i++) {
             std::ostringstream ss; ss << i;
             raw += "X-Header-" + ss.str() + ": value\r\n";
         }
         raw += "\r\n";
-        HttpRequest r = p.parse(raw);
+        HttpRequest r = safeParse(raw);
         check("parse: 100 headers → pas de crash", !r.method.empty());
     }
 
     // body énorme (1MB)
     {
-        RequestParser p;
         std::string body(1024 * 1024, 'X');
         std::ostringstream cl; cl << body.size();
         std::string raw = "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: " + cl.str() + "\r\n\r\n" + body;
-        HttpRequest r = p.parse(raw);
+        HttpRequest r = safeParse(raw);
         check("parse: body 1MB → pas de crash", !r.method.empty());
         check("parse: body 1MB → body correct", r.body.size() == body.size());
     }
