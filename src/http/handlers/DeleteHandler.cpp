@@ -1,18 +1,16 @@
 #include "../../../include/http/MethodHandler.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <unistd.h>
 #include <sys/stat.h>
 #include <cerrno>
 
-HttpResponse MethodHandler::handleDelete(const HttpRequest& request, const LocationConfig& location)
+
+// vérifie l'existence du fichier et le supprime
+// retourne 204 No Content ou une erreur
+static HttpResponse deleteFile(const std::string& filePath)
 {
-    std::string uriPath  = request.uri;
-    std::size_t queryPos = uriPath.find('?');
-    if (queryPos != std::string::npos)
-        uriPath = uriPath.substr(0, queryPos);
-
-    std::string filePath = location.getRoot() + uriPath;
-
     struct stat fileInfo;
     if (stat(filePath.c_str(), &fileInfo) == -1)
     {
@@ -21,15 +19,18 @@ HttpResponse MethodHandler::handleDelete(const HttpRequest& request, const Locat
         return buildHttpError(404, "Not Found");
     }
 
+    // Erreur: on ne peut pas supprimer un répertoire
     if (S_ISDIR(fileInfo.st_mode))
         return buildHttpError(403, "Forbidden");
 
     if (unlink(filePath.c_str()) == 0)
-    {
-        HttpResponse response;
-        response.status_code = 204;
-        response.status_msg  = "No Content";
-        return response;
-    }
+        return buildHttpNoContent();
     return buildHttpError(403, "Forbidden");
+}
+
+HttpResponse MethodHandler::handleDelete(const HttpRequest& request, const LocationConfig& location)
+{
+    std::string uriPath  = extractUriPath(request.uri);
+    std::string filePath = location.getRoot() + uriPath;
+    return deleteFile(filePath);
 }

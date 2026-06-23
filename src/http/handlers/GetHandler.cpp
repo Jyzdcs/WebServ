@@ -1,5 +1,7 @@
 #include "../../../include/http/MethodHandler.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/utils/StringUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -7,6 +9,7 @@
 #include <dirent.h>
 #include <cerrno>
 
+// génère une page HTML listant le contenu d'un répertoire
 static HttpResponse buildAutoindex(const std::string& directoryPath, const std::string& requestUri)
 {
     DIR* directory = opendir(directoryPath.c_str());
@@ -30,50 +33,45 @@ static HttpResponse buildAutoindex(const std::string& directoryPath, const std::
     closedir(directory);
     listingHtml += "</ul></body></html>";
 
-    HttpResponse       response;
-    std::ostringstream contentLength;
-    response.status_code = 200;
-    response.status_msg  = "OK";
-    response.body        = listingHtml;
-    response.headers["Content-Type"] = "text/html";
-    contentLength << listingHtml.size();
-    response.headers["Content-Length"] = contentLength.str();
-    return response;
+    return buildHttpOk(listingHtml, "text/html");
 }
 
-HttpResponse MethodHandler::handleGet(const HttpRequest& request, const LocationConfig& location)
+
+// retourne le path complet du fichier index s'il existe, sinon ""
+// ex: dirPath="/var/www/", index="index.html" → "/var/www/index.html" si le fichier existe
+static std::string resolveIndexPath(const std::string& dirPath, const LocationConfig& location)
 {
-    std::string uriPath  = request.uri;
-    std::size_t queryPos = uriPath.find('?');
-    if (queryPos != std::string::npos)
-        uriPath = uriPath.substr(0, queryPos);
+    if (location.getIndex().empty())
+        return "";
 
-    std::string filePath = location.getRoot() + uriPath;
+    std::string indexPath = dirPath;
+    if (indexPath[indexPath.size() - 1] != '/')
+        indexPath += '/';
+    indexPath += location.getIndex();
 
-    struct stat fileInfo;
-    if (stat(filePath.c_str(), &fileInfo) == 0 && S_ISDIR(fileInfo.st_mode))
-    {
-        if (!location.getIndex().empty())
-        {
-            std::string indexPath = filePath;
-            if (indexPath[indexPath.size() - 1] != '/')
-                indexPath += '/';
-            indexPath += location.getIndex();
+    struct stat indexInfo;
+    if (stat(indexPath.c_str(), &indexInfo) == 0)
+        return indexPath;
+    return "";
+}
 
-            struct stat indexInfo;
-            if (stat(indexPath.c_str(), &indexInfo) == 0)
-                filePath = indexPath;
-            else if (location.getAutoindex())
-                return buildAutoindex(filePath, uriPath);
-            else
-                return buildHttpError(404, "Not Found");
-        }
-        else if (location.getAutoindex())
-            return buildAutoindex(filePath, uriPath);
-        else
-            return buildHttpError(403, "Forbidden");
-    }
+// gère le cas répertoire quand aucun index n'a été trouvé
+// priorité : autoindex → 404 (index configuré mais absent) → 403 (pas d'index du tout)
+static HttpResponse handleDirectory(const std::string& dirPath, const std::string& uriPath,
+                                     const LocationConfig& location)
+{
+    if (location.getAutoindex())
+        return buildAutoindex(dirPath, uriPath);
 
+    if (!location.getIndex().empty())
+        return buildHttpError(404, "Not Found");
+
+    return buildHttpError(403, "Forbidden");
+}
+
+// ouvre et lit un fichier, retourne une réponse 200 avec le body et les headers corrects
+static HttpResponse buildFileResponse(const std::string& filePath)
+{
     int fileDescriptor = open(filePath.c_str(), O_RDONLY);
     if (fileDescriptor == -1)
     {
@@ -82,25 +80,26 @@ HttpResponse MethodHandler::handleGet(const HttpRequest& request, const Location
         return buildHttpError(404, "Not Found");
     }
 
-    HttpResponse response;
-    char         readBuffer[4096];
-    ssize_t      bytesRead;
-
-    while ((bytesRead = read(fileDescriptor, readBuffer, sizeof(readBuffer))) > 0)
-        response.body.append(readBuffer, bytesRead);
-    if (bytesRead < 0)
-    {
-        close(fileDescriptor);
+    std::string body;
+    if (!readFdToString(fileDescriptor, body))
         return buildHttpError(500, "Internal Server Error");
+
+    return buildHttpOk(body, getContentType(filePath));
+}
+
+HttpResponse MethodHandler::handleGet(const HttpRequest& request, const LocationConfig& location)
+{
+    std::string uriPath  = extractUriPath(request.uri);
+    std::string filePath = location.getRoot() + uriPath;
+
+    struct stat fileInfo;
+    if (stat(filePath.c_str(), &fileInfo) == 0 && S_ISDIR(fileInfo.st_mode))
+    {
+        std::string indexPath = resolveIndexPath(filePath, location);
+        if (!indexPath.empty())
+            return buildFileResponse(indexPath);
+        return handleDirectory(filePath, uriPath, location);
     }
-    close(fileDescriptor);
 
-    response.status_code = 200;
-    response.status_msg  = "OK";
-    response.headers["Content-Type"] = getContentType(filePath);
-
-    std::ostringstream contentLength;
-    contentLength << response.body.size();
-    response.headers["Content-Length"] = contentLength.str();
-    return response;
+    return buildFileResponse(filePath);
 }

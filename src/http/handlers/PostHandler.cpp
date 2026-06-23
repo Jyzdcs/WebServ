@@ -1,61 +1,48 @@
 #include "../../../include/http/MethodHandler.hpp"
-#include "../../../include/http/utils/HttpUtils.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/StringUtils.hpp"
+#include "../../../include/http/utils/HttpUtils.hpp"
 #include <fcntl.h>
 #include <unistd.h>
-#include <sstream>
 #include <cerrno>
 
-HttpResponse MethodHandler::handlePost(const HttpRequest& request, const LocationConfig& location)
+
+// ouvre le fichier de destination et écrit le body dedans
+// retourne 201 Created avec Location, ou une erreur
+static HttpResponse writeBodyToFile(const std::string& destPath, const std::string& body,
+                                     const std::string& filename)
 {
-    if (location.getUploadPath().empty())
-        return buildHttpError(500, "Internal Server Error");
-
-    if (request.body.empty())
-        return buildHttpError(400, "Bad Request");
-
-    std::string uriPath  = request.uri;
-    std::size_t queryPos = uriPath.find('?');
-    if (queryPos != std::string::npos)
-        uriPath = uriPath.substr(0, queryPos);
-
-    std::string filename = extractFilename(uriPath);
-    if (filename.empty())
-        return buildHttpError(400, "Bad Request");
-
-    std::string destinationPath = location.getUploadPath() + "/" + filename;
-
-    int fileDescriptor = open(destinationPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fileDescriptor == -1)
+    int fd = open(destPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1)
     {
         if (errno == EACCES || errno == EPERM)
             return buildHttpError(403, "Forbidden");
         return buildHttpError(500, "Internal Server Error");
     }
 
-    const char* bodyData          = request.body.data();
-    std::size_t totalBytesToWrite = request.body.size();
-    std::size_t totalBytesWritten = 0;
-
-    while (totalBytesWritten < totalBytesToWrite)
+    if (!writeFdFromString(fd, body))
     {
-        ssize_t bytesWritten = write(fileDescriptor, bodyData + totalBytesWritten,
-                                     totalBytesToWrite - totalBytesWritten);
-        if (bytesWritten <= 0)
-        {
-            close(fileDescriptor);
-            return buildHttpError(507, "Insufficient Storage");
-        }
-        totalBytesWritten += static_cast<std::size_t>(bytesWritten);
+        close(fd);
+        return buildHttpError(507, "Insufficient Storage");
     }
-    close(fileDescriptor);
+    close(fd);
 
-    HttpResponse       response;
-    std::ostringstream contentLength;
-    response.status_code             = 201;
-    response.status_msg              = "Created";
-    response.headers["Location"]     = "/" + filename;
-    contentLength << response.body.size();
-    response.headers["Content-Length"] = contentLength.str();
+    HttpResponse response        = buildHttpCreated("");
+    response.headers["Location"] = "/" + filename;
     return response;
+}
+
+HttpResponse MethodHandler::handlePost(const HttpRequest& request, const LocationConfig& location)
+{
+    // Erreur: location sans upload_store configuré
+    if (location.getUploadPath().empty())
+        return buildHttpError(500, "Internal Server Error");
+
+    std::string uriPath  = extractUriPath(request.uri);
+    std::string filename = extractFilename(uriPath);
+    if (filename.empty())
+        return buildHttpError(400, "Bad Request");
+
+    std::string destPath = location.getUploadPath() + "/" + filename;
+    return writeBodyToFile(destPath, request.body, filename);
 }

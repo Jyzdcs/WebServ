@@ -11,15 +11,11 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
     envVars.push_back("QUERY_STRING="   + extractQueryString(request.uri));
     envVars.push_back("SCRIPT_FILENAME=" + scriptPath);
 
-    std::string pathWithoutQuery = request.uri;
-    std::size_t queryPosition    = pathWithoutQuery.find('?');
-    if (queryPosition != std::string::npos)
-        pathWithoutQuery = pathWithoutQuery.substr(0, queryPosition);
-    envVars.push_back("PATH_INFO=" + pathWithoutQuery);
+    envVars.push_back("PATH_INFO=" + extractUriPath(request.uri));
 
     std::map<std::string, std::string>::const_iterator headerIt;
 
-    headerIt = request.headers.find("Content-Type");
+    headerIt = request.headers.find("content-type");
     if (headerIt != request.headers.end())
         envVars.push_back("CONTENT_TYPE=" + headerIt->second);
     else
@@ -34,7 +30,7 @@ std::vector<std::string> CgiHandler::buildEnv(const HttpRequest& request,
     else
         envVars.push_back("CONTENT_LENGTH=0");
 
-    headerIt = request.headers.find("Host");
+    headerIt = request.headers.find("host");
     if (headerIt != request.headers.end())
         envVars.push_back("HTTP_HOST=" + headerIt->second);
 
