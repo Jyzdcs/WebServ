@@ -25,10 +25,9 @@ class Socket
 		int					_port;
 		std::string	_host;
 
-		// Non copyable : un Socket possède un fd unique (ressource OS)
-		Socket(const Socket& other);
-		Socket& operator=(const Socket& other);
 
+	inline std::string intToString(int value);
+	
 	public:
 		/*
 		** Goal: Construire et configurer le socket d'écoute.
@@ -78,6 +77,11 @@ class Socket
 		** une connexion entrante à son ServerConfig (multi-port).
 		*/
 		int getPort() const;
+
+		class FailedToBindPort : public std::exception {
+			const char *what() const throw();
+		};
+
 };
 
 #endif
