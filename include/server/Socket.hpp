@@ -81,7 +81,14 @@ class Socket
 		class FailedToBindPort : public std::exception {
 			const char *what() const throw();
 		};
-
+		
+		class FcntlFailed : public std::exception {
+			const char *what() const throw();
+		};
+		
+		class ListenFalied : public std::exception {
+			const char *what() const throw();
+		};
 };
 
 #endif
