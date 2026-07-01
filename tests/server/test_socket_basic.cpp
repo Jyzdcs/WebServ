@@ -13,7 +13,8 @@
 // #include <sstream>
 // #include <fcntl.h>
 
-// int main() {
+int main() {
+	return 1;
 // 	try {
 // 		ServerConfig conf;        // adapte à ton code
 // 		conf.setPort(8000);       // port de test
@@ -57,6 +58,6 @@
 // 		std::cout << "Done, exiting." << std::endl;
 // 	} catch (std::exception &e) {
 // 		std::cerr << "Exception: " << e.what() << std::endl;
-// 		return 1;
+		// return 1;
 // 	}
-// }
+}
