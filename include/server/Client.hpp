@@ -50,9 +50,7 @@ class Client
 
 		long _last_activity;
 
-		// Non copyable : un Client possède un fd unique
-		Client(const Client& other);
-		Client& operator=(const Client& other);
+		long getCurrentTimeStamp() const;
 
 	public:
 		/*
