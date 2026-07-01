@@ -159,6 +159,10 @@ class Client
 		*/
 		long getLastActivity() const;
 		void updateLastActivity();
+		
+		class ReadFailed : public std::exception {
+			const char *what() const throw();
+		};
 };
 
 #endif
