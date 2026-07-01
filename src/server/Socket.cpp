@@ -56,6 +56,7 @@ Socket::Socket(ServerConfig serverConf) {
 
 	// If p == NULL it mean that there has no available socket
 	if (p == NULL) {
+		std::cout << "Line 59 in Socket.cpp  ";
 		throw FailedToBindPort();
 	}
 
@@ -63,17 +64,20 @@ Socket::Socket(ServerConfig serverConf) {
 
 	// Mettre l'etat du server en LISTEN
 	if (listen(_fd, 10) == -1) {
+		std::cout << "Line 67 in Socket.cpp ";
 		throw ListenFalied();
 	}
 
 	// Rendre le socket _fd non bloquant
-	int flags = fcntl(_fd, F_GETFL, 0);
-	if (flags == -1) {
-		throw FcntlFailed();
-	};
-	if (fcntl(_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		throw FcntlFailed();
-	}
+	// int flags = fcntl(_fd, F_GETFL, 0);
+	// if (flags == -1) {
+	// 	std::cout << "Line 74 in Socket.cpp ";
+	// 	throw FcntlFailed();
+	// };
+	// if (fcntl(_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+	// 	std::cout << "Line 78 in Socket.cpp ";
+	// 	throw FcntlFailed();
+	// }
 };
 
   
@@ -96,7 +100,28 @@ int Socket::getFd() const {
 
 
 int Socket::acceptConnection() const {
-
+	struct sockaddr_in client_addr;
+	socklen_t 				addrlen = sizeof(client_addr);
+	int 							newConnectionFd;
+	int 							flags;
+	
+	// Creation de la nouvelle socket client
+	newConnectionFd = accept(_fd, (struct sockaddr *)&client_addr, &addrlen);
+	if (newConnectionFd < 0) {
+		std::cout << "Line 111 in Socket.cpp ";
+		throw AcceptNewConnectionFailed();
+	}
+	// Mettre le socket client en non bloquant
+	flags = fcntl(newConnectionFd, F_GETFL, 0);
+	if (flags == -1) {
+		std::cout << "Line 116 in Socket.cpp ";
+		throw FcntlFailed();
+	};
+	if (fcntl(newConnectionFd, F_SETFL, flags | O_NONBLOCK) == -1) {
+		std::cout << "Line 120 in Socket.cpp ";
+		throw FcntlFailed();
+	}
+	return newConnectionFd;
 };
 
 
@@ -114,4 +139,8 @@ const char * Socket::FcntlFailed::what() const throw() {
 
 const char * Socket::ListenFalied::what() const throw() {
 	return "SocketError: Listen function in core server failed!";
+};
+
+const char * Socket::AcceptNewConnectionFailed::what() const throw() {
+	return "SocketError: newConnectionFd failed, there is no client to accept!";
 };

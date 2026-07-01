@@ -85,8 +85,12 @@ class Socket
 		class FcntlFailed : public std::exception {
 			const char *what() const throw();
 		};
-		
+
 		class ListenFalied : public std::exception {
+			const char *what() const throw();
+		};
+		
+		class AcceptNewConnectionFailed : public std::exception {
 			const char *what() const throw();
 		};
 };
