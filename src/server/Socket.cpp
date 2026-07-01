@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <cstring>
 #include <sstream>
 #include <fcntl.h>
 
@@ -69,15 +70,15 @@ Socket::Socket(ServerConfig serverConf) {
 	}
 
 	// Rendre le socket _fd non bloquant
-	// int flags = fcntl(_fd, F_GETFL, 0);
-	// if (flags == -1) {
-	// 	std::cout << "Line 74 in Socket.cpp ";
-	// 	throw FcntlFailed();
-	// };
-	// if (fcntl(_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-	// 	std::cout << "Line 78 in Socket.cpp ";
-	// 	throw FcntlFailed();
-	// }
+	int flags = fcntl(_fd, F_GETFL, 0);
+	if (flags == -1) {
+		std::cout << "Line 74 in Socket.cpp ";
+		throw FcntlFailed();
+	};
+	if (fcntl(_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+		std::cout << "Line 78 in Socket.cpp ";
+		throw FcntlFailed();
+	}
 };
 
   
