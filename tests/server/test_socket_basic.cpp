@@ -14,7 +14,7 @@
 // #include <fcntl.h>
 
 int main() {
-	return 1;
+	return 0;
 // 	try {
 // 		ServerConfig conf;        // adapte à ton code
 // 		conf.setPort(8000);       // port de test
