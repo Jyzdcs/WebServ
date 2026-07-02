@@ -57,7 +57,7 @@ hello world
 */
 
 bool Client::isRequestComplete() const {
-	// std::cout << "_read_buffer: " << _read_buffer << std::endl;
+	// std::cout << "Request Content: " << std::endl << "`" << _read_buffer << "`" << std::endl;
 	// Trouver l'index de la fin du header
 	std::string::size_type header_end = _read_buffer.find("\r\n\r\n");
 
