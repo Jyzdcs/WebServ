@@ -61,6 +61,9 @@ class Client
 		Client(int fd, int server_port);
 		~Client();
 
+		// Utils
+		void setReadBuffer(std::string);
+
 		// --- Accès au fd ---
 
 		/*

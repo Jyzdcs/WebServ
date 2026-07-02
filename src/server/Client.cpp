@@ -16,32 +16,48 @@ long Client::getCurrentTimeStamp() const {
 	return static_cast<long>(now);
 }
 
+void Client::setReadBuffer(std::string buf) {
+	_read_buffer = buf;
+};
+
 int Client::getFd() const {
 	return _fd;
 };
 
 int Client::receiveData() {
-	char buf[256];
+	char buf[2006];
 	int	n_read;
 	
 	n_read = read(_fd, buf, sizeof(buf));
+	std::cout << "n_read: " << n_read << std::endl;
 	if (n_read > 0) {
 		_read_buffer.append(buf, n_read);
 		updateLastActivity();
 		if (isRequestComplete()) {
 			_state = PROCESSING;
+			std::cout << _state << std::endl;
 		}
 	} else if (n_read == 0) {
+		std::cout << "Client " << _fd << " disconnected" << std::endl;
 		setState(CLOSING);
 	} else {
 		setState(CLOSING);
-		perror("Line 38 : ");
-		ReadFailed();
+		perror("Line 38 ");
+		throw ReadFailed();
 	}
 	return n_read;
 };
 
+/* Request valid example
+POST /test HTTP/1.1\r\n
+Host: example.com\r\n
+Content-Length: 11\r\n
+\r\n
+hello world
+*/
+
 bool Client::isRequestComplete() const {
+	// std::cout << "_read_buffer: " << _read_buffer << std::endl;
 	// Trouver l'index de la fin du header
 	std::string::size_type header_end = _read_buffer.find("\r\n\r\n");
 
@@ -66,7 +82,34 @@ bool Client::isRequestComplete() const {
 		return true;
 	}
 
-	pos += cl_header.size();
+	pos += cl_header.size() + 1;
+	// Tant quon est pas sur la valeur REEL de content length, on incremente l'index
+	// Exemple : Content-Length:          \t 13\r\n
+	while (pos == ' ' or pos == '\t') {
+		pos++;
+	}
+
+	// Compter la size de la valeur de COntent-Length
+	std::string::size_type end = pos;
+	while (end < headers.size() and std::isdigit(headers[end])) {
+		end++;
+	}
+
+	// Extraire et convertir la value de Content-Length
+	std::string cl_value = headers.substr(pos, end - pos);
+	long content_length = std::strtol(cl_value.c_str(), NULL, 10);
+	if (content_length < 0) {
+		// valeur invalide
+		return false;
+	}
+	// Vérifier qu'on a bien tout le body
+	std::string::size_type body_bytes =
+			_read_buffer.size() - headers_size;
+
+	if (body_bytes >= static_cast<std::string::size_type>(content_length)) {
+		return true;
+	}
+	return false;
 };
 
 int Client::sendData() {
@@ -105,5 +148,5 @@ void Client::updateLastActivity() {
 };
 
 const char* Client::ReadFailed::what() const throw() {
-	return "Error: ReadFailed";
+	return "ReadFailed";
 };
