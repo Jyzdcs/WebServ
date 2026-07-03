@@ -1,6 +1,6 @@
-#include "include/server/Socket.hpp"
-#include "include/server/Client.hpp"
-#include "include/config/ServerConfig.hpp"
+#include "../../../include/server/Socket.hpp"
+#include "../../../include/server/Client.hpp"
+#include "../../../include/config/ServerConfig.hpp"
 #include <iostream>
 #include <iostream>
 #include <stdio.h>
