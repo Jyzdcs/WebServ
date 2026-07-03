@@ -38,6 +38,7 @@ void PollManager::removeFd(int fd) {
 	if (idx < _fds.size()) {
 		_fds.erase(_fds.begin() + idx);
 	}
+	close(fd);
 };
 
 void PollManager::updateEvents(int fd, short events) {
