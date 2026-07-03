@@ -50,9 +50,7 @@ class Client
 
 		long _last_activity;
 
-		// Non copyable : un Client possède un fd unique
-		Client(const Client& other);
-		Client& operator=(const Client& other);
+		long getCurrentTimeStamp() const;
 
 	public:
 		/*
@@ -62,6 +60,9 @@ class Client
 		*/
 		Client(int fd, int server_port);
 		~Client();
+
+		// Utils
+		void setReadBuffer(std::string);
 
 		// --- Accès au fd ---
 
@@ -161,6 +162,10 @@ class Client
 		*/
 		long getLastActivity() const;
 		void updateLastActivity();
+		
+		class ReadFailed : public std::exception {
+			const char *what() const throw();
+		};
 };
 
 #endif
