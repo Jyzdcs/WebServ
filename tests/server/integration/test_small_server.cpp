@@ -13,9 +13,9 @@
 #include <netdb.h>
 #include <sstream>
 #include <fcntl.h>
-#include "include/http/processHttp.hpp"
-#include "include/config/ServerConfig.hpp"
-#include "include/config/ConfigParser.hpp"
+#include "../../../include/http/processHttp.hpp"
+#include "../../../include/config/ServerConfig.hpp"
+#include "../../../include/config/ConfigParser.hpp"
 
 int main(int ac, char **av) {
 	return 0;
