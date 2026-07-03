@@ -1,6 +1,8 @@
 #include "../../include/server/Client.hpp"
 #include <string>
 #include <ctime>
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
