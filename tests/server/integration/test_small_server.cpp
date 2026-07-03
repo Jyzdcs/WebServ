@@ -17,10 +17,11 @@
 #include "../../../include/config/ServerConfig.hpp"
 #include "../../../include/config/ConfigParser.hpp"
 
-int main(int ac, char **av) {
+int main() {
+	// int main(int ac, char **av) {
 	return 0;
 	// try {
-	// 	const std::string &path = (ac > 1) ? av[1] : "config/default.conf";
+		// const std::string &path = (ac > 1) ? av[1] : "config/default.conf";
 	// 	ConfigParser parser;
 	// 	Config config = parser.parse(path);
 	// 	const std::vector<ServerConfig> &servers = config.getServers();
