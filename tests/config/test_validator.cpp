@@ -125,11 +125,36 @@ int main()
     }
 
     {
-        // Deux servers sur le même host:port.
+        // Deux servers sur le même host:port, sans server_name.
         Config config;
         config.addServer(buildValidServer());
         config.addServer(buildValidServer());
-        check("host:port dupliqué rejeté", rejects(config));
+        check("host:port dupliqué sans server_name rejeté", rejects(config));
+    }
+
+    {
+        // Même host:port + même server_name : toujours impossible à départager.
+        Config config;
+        ServerConfig a = buildValidServer();
+        ServerConfig b = buildValidServer();
+        a.setServerName("site.com");
+        b.setServerName("site.com");
+        config.addServer(a);
+        config.addServer(b);
+        check("host:port dupliqué avec même server_name rejeté", rejects(config));
+    }
+
+    {
+        // Même host:port mais server_name différents = virtual hosting par nom
+        // (grille d'éval : "plusieurs serveurs avec différents hostnames").
+        Config config;
+        ServerConfig a = buildValidServer();
+        ServerConfig b = buildValidServer();
+        a.setServerName("site-a.com");
+        b.setServerName("site-b.com");
+        config.addServer(a);
+        config.addServer(b);
+        check("virtual hosts (même host:port, noms différents) accepté", !rejects(config));
     }
 
     {

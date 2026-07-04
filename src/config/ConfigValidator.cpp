@@ -121,23 +121,33 @@ void ConfigValidator::validateLocation(const LocationConfig& location, size_t se
     }
 }
 
-// host:port identiques sur deux servers -> le deuxième bind() échouerait.
-// C'est une exigence du sujet : refuser de démarrer dans ce cas.
+// Deux servers sur le même host:port :
+//   - AUTORISÉ si leurs server_name diffèrent -> virtual hosting par nom,
+//     le server est choisi via le header Host (grille d'éval : "plusieurs
+//     serveurs avec différents hostnames", curl --resolve).
+//   - REFUSÉ sinon (même nom, ou pas de nom) : impossible de les départager,
+//     c'est le cas "même port deux fois -> refus de démarrer" du sujet.
 void ConfigValidator::checkDuplicateHostPort(const std::vector<ServerConfig>& servers)
 {
     for (size_t i = 0; i < servers.size(); ++i)
     {
         for (size_t j = i + 1; j < servers.size(); ++j)
         {
-            if (servers[i].getHost() == servers[j].getHost()
-                && servers[i].getPort() == servers[j].getPort())
-            {
-                std::ostringstream oss;
-                oss << "server[" << j << "] duplicates host:port "
-                    << servers[i].getHost() << ":" << servers[i].getPort()
-                    << " of server[" << i << "]";
-                throw std::runtime_error(oss.str());
-            }
+            if (servers[i].getHost() != servers[j].getHost()
+                || servers[i].getPort() != servers[j].getPort())
+                continue;
+
+            const std::string& nameI = servers[i].getServerName();
+            const std::string& nameJ = servers[j].getServerName();
+            if (!nameI.empty() && !nameJ.empty() && nameI != nameJ)
+                continue; // virtual hosts : le header Host les départagera
+
+            std::ostringstream oss;
+            oss << "server[" << j << "] duplicates host:port "
+                << servers[i].getHost() << ":" << servers[i].getPort()
+                << " of server[" << i << "]"
+                << " (add distinct server_name to both for virtual hosting)";
+            throw std::runtime_error(oss.str());
         }
     }
 }

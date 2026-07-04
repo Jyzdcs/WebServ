@@ -88,6 +88,9 @@ Les planifier ensemble avant de passer à la phase suivante.
 Se réunir en équipe et vérifier :
 
 - [ ] Le serveur démarre avec un fichier de config et écoute sur les ports attendus
+- [ ] Virtual hosting par nom (éval §2) : deux servers peuvent partager un host:port si leurs
+  `server_name` diffèrent → le Core Server ne doit bind **qu'une fois** par host:port unique,
+  et la couche HTTP doit choisir le bloc server via le header `Host` (défaut : le premier déclaré)
 - [ ] Une requête GET depuis un navigateur retourne une réponse valide
 - [ ] Le multi-port fonctionne — contenu différent par port
 - [ ] Le CGI s'exécute correctement de bout en bout
