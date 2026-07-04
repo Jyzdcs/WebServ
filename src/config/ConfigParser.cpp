@@ -49,9 +49,6 @@ void ConfigParser::expect(TokenType type)
     advance();
   }
 
-// Consomme la valeur d'une directive (un WORD ou un NUMBER).
-// Refuse les symboles : sans ce garde-fou, "root ;" stockerait ";"
-// comme valeur au lieu de signaler la valeur manquante.
 std::string ConfigParser::takeValue(const std::string& directive)
 {
     if (current().type != WORD && current().type != NUMBER)
@@ -65,10 +62,6 @@ std::string ConfigParser::takeValue(const std::string& directive)
     return value;
 }
 
-// Consomme une valeur strictement numérique.
-// Le tokenizer marque NUMBER dès que le 1er caractère est un chiffre,
-// donc "8080abc" est un NUMBER : on re-vérifie chaque caractère ici,
-// sinon atoi("8080abc") donnerait 8080 en silence.
 int ConfigParser::takeNumber(const std::string& directive)
 {
     if (current().type != NUMBER)
@@ -88,9 +81,6 @@ int ConfigParser::takeNumber(const std::string& directive)
             throw std::runtime_error(oss.str());
         }
     }
-    // atoi déborde en silence au-delà de INT_MAX : "4294975376" (= 2^32 + 8080)
-    // redonnerait 8080 et passerait la validation ! 9 chiffres max suffisent
-    // largement pour un port ou un code HTTP, et tiennent toujours dans un int.
     if (value.size() > 9)
     {
         std::ostringstream oss;
@@ -179,8 +169,6 @@ void ConfigParser::parseLocationDirective(LocationConfig &location)
     }
     else if (name == "methods")
     {
-        // Au moins une méthode : takeValue refuse un ';' immédiat,
-        // puis on boucle tant qu'il reste des valeurs avant le ';'.
         location.addMethod(takeValue("methods"));
         while (current().type != SEMICOLON && current().type != END_OF_FILE)
             location.addMethod(takeValue("methods"));

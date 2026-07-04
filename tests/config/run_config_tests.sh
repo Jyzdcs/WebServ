@@ -1,8 +1,5 @@
 #!/bin/sh
-# Teste tous les fichiers de config du repo :
-#   - config/default.conf et config/valid/*.conf doivent être ACCEPTÉS
-#   - config/invalid/*.conf doivent être REJETÉS (avec un message, sans crash)
-# Usage : sh tests/config/run_config_tests.sh   (depuis la racine du repo)
+# Usage : sh tests/config/run_config_tests.sh (depuis la racine du repo)
 
 set -u
 
@@ -44,7 +41,6 @@ for f in config/invalid/*.conf; do
         echo "[KO] $f aurait dû être rejeté"
         FAILED=$((FAILED + 1))
     else
-        # status > 1 = crash (segfault, abort...) : interdit par le sujet.
         echo "[KO] $f a fait CRASHER le checker (exit $status)"
         FAILED=$((FAILED + 1))
     fi

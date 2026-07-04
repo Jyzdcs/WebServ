@@ -1,10 +1,6 @@
 #include "../../include/config/ConfigValidator.hpp"
 #include <iostream>
 
-// Banc de test du ConfigValidator : on construit des Config à la main
-// (via les setters, comme ConfigMock) et on vérifie que chaque règle
-// laisse passer le valide et rejette l'invalide.
-
 static int passed = 0;
 static int failed = 0;
 
@@ -22,7 +18,6 @@ static void check(const std::string& label, bool condition)
     }
 }
 
-// Retourne true si validate() a bien rejeté la config (throw).
 static bool rejects(const Config& config)
 {
     ConfigValidator validator;
@@ -37,7 +32,6 @@ static bool rejects(const Config& config)
     return false;
 }
 
-// Un server minimal correct : la base que chaque test va casser.
 static ServerConfig buildValidServer()
 {
     ServerConfig server;
@@ -62,11 +56,9 @@ static Config wrap(const ServerConfig& server)
 
 int main()
 {
-    // --- cas valides : le validator ne doit PAS throw ---
     check("config minimale valide acceptée", !rejects(wrap(buildValidServer())));
 
     {
-        // Même port sur deux hosts différents = autorisé.
         Config config;
         ServerConfig a = buildValidServer();
         ServerConfig b = buildValidServer();
@@ -77,7 +69,6 @@ int main()
     }
 
     {
-        // Une location sans root mais avec redirect = valide (elle sait quoi faire).
         ServerConfig server = buildValidServer();
         LocationConfig old;
         old.setPath("/old");
@@ -86,7 +77,6 @@ int main()
         check("location redirect sans root acceptée", !rejects(wrap(server)));
     }
 
-    // --- cas invalides : le validator DOIT throw ---
     {
         Config empty;
         check("config sans server rejetée", rejects(empty));
@@ -94,7 +84,7 @@ int main()
 
     {
         ServerConfig server = buildValidServer();
-        server.setPort(0); // comme si 'listen' n'avait jamais été lu
+        server.setPort(0);
         check("listen manquant rejeté", rejects(wrap(server)));
     }
 
@@ -114,7 +104,6 @@ int main()
         ServerConfig server;
         server.setPort(8080);
         server.setHost("127.0.0.1");
-        // aucune location ajoutée
         check("server sans location rejeté", rejects(wrap(server)));
     }
 
@@ -125,7 +114,6 @@ int main()
     }
 
     {
-        // Deux servers sur le même host:port, sans server_name.
         Config config;
         config.addServer(buildValidServer());
         config.addServer(buildValidServer());
@@ -133,7 +121,6 @@ int main()
     }
 
     {
-        // Même host:port + même server_name : toujours impossible à départager.
         Config config;
         ServerConfig a = buildValidServer();
         ServerConfig b = buildValidServer();
@@ -145,8 +132,6 @@ int main()
     }
 
     {
-        // Même host:port mais server_name différents = virtual hosting par nom
-        // (grille d'éval : "plusieurs serveurs avec différents hostnames").
         Config config;
         ServerConfig a = buildValidServer();
         ServerConfig b = buildValidServer();
@@ -160,7 +145,7 @@ int main()
     {
         ServerConfig server = buildValidServer();
         LocationConfig bad;
-        bad.setPath("uploads"); // ne commence pas par '/'
+        bad.setPath("uploads");
         bad.setRoot("www");
         server.addLocation(bad);
         check("path sans '/' initial rejeté", rejects(wrap(server)));
@@ -171,7 +156,7 @@ int main()
         LocationConfig bad;
         bad.setPath("/api");
         bad.setRoot("www");
-        bad.addMethod("PATCH"); // méthode non implémentée
+        bad.addMethod("PATCH");
         server.addLocation(bad);
         check("méthode PATCH rejetée", rejects(wrap(server)));
     }
@@ -182,7 +167,7 @@ int main()
         bad.setPath("/api");
         bad.setRoot("www");
         bad.addMethod("GET");
-        bad.addMethod("GET"); // doublon
+        bad.addMethod("GET");
         server.addLocation(bad);
         check("méthode dupliquée rejetée", rejects(wrap(server)));
     }
@@ -191,7 +176,7 @@ int main()
         ServerConfig server = buildValidServer();
         LocationConfig bad;
         bad.setPath("/vide");
-        bad.addMethod("GET"); // ni root, ni redirect, ni cgi
+        bad.addMethod("GET");
         server.addLocation(bad);
         check("location sans action rejetée", rejects(wrap(server)));
     }
@@ -199,7 +184,7 @@ int main()
     {
         ServerConfig server = buildValidServer();
         LocationConfig dup;
-        dup.setPath("/"); // déjà pris par buildValidServer
+        dup.setPath("/");
         dup.setRoot("www");
         server.addLocation(dup);
         check("location dupliquée rejetée", rejects(wrap(server)));
@@ -210,7 +195,7 @@ int main()
         LocationConfig bad;
         bad.setPath("/uploads");
         bad.setRoot("www/uploads");
-        bad.addMethod("GET"); // upload_store mais pas de POST
+        bad.addMethod("GET");
         bad.setUploadPath("www/uploads");
         server.addLocation(bad);
         check("upload_store sans POST rejeté", rejects(wrap(server)));

@@ -2,13 +2,6 @@
 #include "include/config/ConfigValidator.hpp"
 #include <iostream>
 
-// Point d'entrée de webserv.
-// Usage : ./webserv [fichier_de_config]
-// Sans argument, on retombe sur config/default.conf (exigence du sujet).
-//
-// Pour l'instant le main s'arrête après le chargement de la config :
-// le branchement de la boucle serveur (PollManager + Socket) se fera
-// au point d'intégration 1, quand le contrat d'interface sera figé.
 int main(int argc, char **argv)
 {
     if (argc > 2)
@@ -29,7 +22,6 @@ int main(int argc, char **argv)
     }
     catch (const std::exception& e)
     {
-        // Config invalide = message clair et sortie propre, jamais de crash.
         std::cerr << "webserv: " << path << ": " << e.what() << std::endl;
         return 1;
     }
