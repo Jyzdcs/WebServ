@@ -260,7 +260,7 @@ static void bug4_httpresponse_uninitialized_status_code()
     /* Show what ResponseBuilder emits with a default-constructed response */
     ResponseBuilder rb;
     HttpResponse    uninitialized;
-    std::string     raw = rb.build(uninitialized);
+    std::string     raw = rb.build(uninitialized, true);
     std::cout << "  ResponseBuilder::build() output with uninitialized HttpResponse:\n";
     std::cout << "    " << raw.substr(0, raw.find("\r\n")) << "\n\n";
     std::cout << "  PROOF: HttpResponse.hpp has no constructor.\n";
@@ -341,7 +341,7 @@ static void bug6_missing_connection_close_header()
     resp.headers["Content-Length"] = "5";
 
     ResponseBuilder rb;
-    std::string     raw = rb.build(resp);
+    std::string     raw = rb.build(resp, true);
 
     bool hasConnectionHeader = (raw.find("Connection:") != std::string::npos);
 
@@ -563,7 +563,7 @@ static void bug10_delete_response_has_no_headers()
     std::cout << "\n";
 
     ResponseBuilder rb;
-    std::string     built = rb.build(resp);
+    std::string     built = rb.build(resp, true);
     bool hasServerHeader = (built.find("Server:") != std::string::npos);
 
     std::cout << "  Full built response:\n  "
