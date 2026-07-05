@@ -11,9 +11,9 @@ Pour les exigences détaillées du sujet et la grille d'évaluation, voir `docs/
 
 | Module | Responsable | Statut |
 |--------|-------------|--------|
-| Config Parsing | — | 🔴 Pas commencé |
-| Core Server (boucle d'événements) | — | 🔴 Pas commencé |
-| HTTP Layer | — | 🔴 Pas commencé |
+| Config Parsing | Arthur | 🟢 Terminé (tokenizer + parser + validator + configs de test) |
+| Core Server (boucle d'événements) | — | 🟡 En cours (Socket + PollManager) |
+| HTTP Layer | — | 🟢 Terminé (parser, router, handlers, CGI) |
 
 Les **points d'intégration** sont les moments où les trois modules doivent s'aligner.
 Les planifier ensemble avant de passer à la phase suivante.
@@ -35,12 +35,12 @@ Les planifier ensemble avant de passer à la phase suivante.
 
 **Livraison :** une représentation parsée et validée du fichier de configuration, interrogeable par le reste du programme.
 
-- [ ] Lire un fichier de config passé en argument, ou utiliser un chemin par défaut
-- [ ] Supporter plusieurs blocs server avec des paires host:port différentes
-- [ ] Supporter la configuration par route (méthodes, répertoire racine, index, listing, redirections, upload, CGI)
-- [ ] Valider la config — rejeter les configurations invalides avec un message clair, sans crash
-- [ ] host:port dupliqué → refus de démarrer
-- [ ] Fournir des fichiers de config représentatifs pour les tests (valide, multi-port, CGI, erreurs, invalide)
+- [x] Lire un fichier de config passé en argument, ou utiliser un chemin par défaut (`main.cpp` → `config/default.conf`)
+- [x] Supporter plusieurs blocs server avec des paires host:port différentes
+- [x] Supporter la configuration par route (méthodes, répertoire racine, index, listing, redirections, upload, CGI)
+- [x] Valider la config — rejeter les configurations invalides avec un message clair, sans crash (`ConfigValidator`)
+- [x] host:port dupliqué → refus de démarrer
+- [x] Fournir des fichiers de config représentatifs pour les tests (`config/valid/`, `config/invalid/`, `tests/config/run_config_tests.sh`)
 
 ---
 
@@ -88,6 +88,9 @@ Les planifier ensemble avant de passer à la phase suivante.
 Se réunir en équipe et vérifier :
 
 - [ ] Le serveur démarre avec un fichier de config et écoute sur les ports attendus
+- [ ] Virtual hosting par nom (éval §2) : deux servers peuvent partager un host:port si leurs
+  `server_name` diffèrent → le Core Server ne doit bind **qu'une fois** par host:port unique,
+  et la couche HTTP doit choisir le bloc server via le header `Host` (défaut : le premier déclaré)
 - [ ] Une requête GET depuis un navigateur retourne une réponse valide
 - [ ] Le multi-port fonctionne — contenu différent par port
 - [ ] Le CGI s'exécute correctement de bout en bout

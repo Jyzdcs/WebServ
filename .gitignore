@@ -12,3 +12,6 @@ test_tok
 a.out
 # Personal concept notes (learn-concept skill)
 concepts/
+
+# webserv binary
+webserv
