@@ -6,7 +6,7 @@
 
 class ResponseBuilder {
 public:
-    std::string build(const HttpResponse& res);
+    std::string build(const HttpResponse& res, bool shouldClose);
 };
 
 #endif

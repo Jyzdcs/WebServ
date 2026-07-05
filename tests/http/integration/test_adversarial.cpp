@@ -237,7 +237,7 @@ int main()
         res.headers["Content-Type"]   = "";
         res.headers["X-Empty"]        = "";
         res.body = "test";
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("builder: headers vides → pas de crash", !raw.empty());
         check("builder: contient status line", raw.find("HTTP/1.1 200") != std::string::npos);
     }
@@ -248,7 +248,7 @@ int main()
         res.status_code = 418;
         res.status_msg  = "I'm a teapot!";
         res.body = "";
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("builder: status message special → correct", raw.find("418") != std::string::npos);
     }
 
@@ -259,7 +259,7 @@ int main()
         res.status_msg  = "OK";
         res.body = std::string("hel\0lo", 6);
         res.headers["Content-Length"] = "6";
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("builder: body avec null bytes → taille correcte", raw.size() >= 6);
     }
 
@@ -312,7 +312,7 @@ int main()
         LocationConfig loc = makeGetLoc();
         ServerConfig   srv; srv.addLocation(loc);
         HttpResponse res = handler.handle(r, loc, srv);
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
 
         check("pipeline: commence par HTTP/1.1", raw.substr(0, 8) == "HTTP/1.1");
         check("pipeline: contient \\r\\n\\r\\n", raw.find("\r\n\r\n") != std::string::npos);
@@ -325,7 +325,7 @@ int main()
         ServerConfig   srv; srv.addLocation(loc);
         HttpResponse res = handler.handle(makeReq("POST", "/index.html", "data"), loc, srv);
         check("POST sur GET-only → 405", res.status_code == 405);
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("405 sérialisé correctement", raw.find("405") != std::string::npos);
     }
 

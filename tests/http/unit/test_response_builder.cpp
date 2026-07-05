@@ -33,7 +33,7 @@ int main()
         res.headers["Content-Length"] = "13";
         res.body = "Hello World!\n";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("200 OK: status line",           startsWith(raw, "HTTP/1.1 200 OK\r\n"));
         check("200 OK: Content-Type header",   contains(raw, "Content-Type: text/html\r\n"));
         check("200 OK: Content-Length header", contains(raw, "Content-Length: 13\r\n"));
@@ -50,7 +50,7 @@ int main()
         res.headers["Content-Type"]   = "text/html";
         res.headers["Content-Length"] = "44";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("404: status line",   startsWith(raw, "HTTP/1.1 404 Not Found\r\n"));
         check("404: body present",  contains(raw, "Not Found"));
     }
@@ -63,7 +63,7 @@ int main()
         res.headers["Location"]       = "/uploads/file.txt";
         res.headers["Content-Length"] = "0";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("201 Created: status line",
               startsWith(raw, "HTTP/1.1 201 Created\r\n"));
         check("201 Created: Location header",
@@ -79,7 +79,7 @@ int main()
         res.status_msg  = "Moved Permanently";
         res.headers["Location"] = "https://example.com";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("301: status line",    startsWith(raw, "HTTP/1.1 301 Moved Permanently\r\n"));
         check("301: Location header", contains(raw, "Location: https://example.com\r\n"));
     }
@@ -92,7 +92,7 @@ int main()
         res.headers["Content-Type"]   = "text/html";
         res.headers["Content-Length"] = "0";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("405: status line", startsWith(raw, "HTTP/1.1 405 Method Not Allowed\r\n"));
     }
 
@@ -104,7 +104,7 @@ int main()
         res.body        = "<html><body><h1>Internal Server Error</h1></body></html>";
         res.headers["Content-Type"] = "text/html";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("500: status line",  startsWith(raw, "HTTP/1.1 500 Internal Server Error\r\n"));
         check("500: body present", contains(raw, "Internal Server Error"));
     }
@@ -115,7 +115,7 @@ int main()
         res.status_code = 204;
         res.status_msg  = "No Content";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("204: status line", startsWith(raw, "HTTP/1.1 204 No Content\r\n"));
         check("204: separateur present", contains(raw, "\r\n\r\n"));
         check("204: body vide", raw.substr(raw.find("\r\n\r\n") + 4).empty());
@@ -131,7 +131,7 @@ int main()
         res.headers["X-Custom"]       = "webserv";
         res.body = "{}";
 
-        std::string raw = builder.build(res);
+        std::string raw = builder.build(res, true);
         check("multi-headers: Content-Type JSON",
               contains(raw, "Content-Type: application/json\r\n"));
         check("multi-headers: X-Custom present",

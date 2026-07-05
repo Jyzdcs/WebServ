@@ -4,6 +4,11 @@
 #include "../config/ServerConfig.hpp"
 #include <string>
 
-std::string processHttp(const std::string& rawRequest, const ServerConfig& server);
+struct ProcessResult {
+    std::string response;
+    bool        shouldClose;
+};
+
+ProcessResult processHttp(const std::string& rawRequest, const ServerConfig& server);
 
 #endif
