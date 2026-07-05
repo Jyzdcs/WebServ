@@ -1,4 +1,5 @@
 #include "../../include/server/PollManager.hpp"
+#include <unistd.h>
 
 PollManager::PollManager() {
 	_fds.reserve(5);

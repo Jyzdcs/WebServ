@@ -6,6 +6,9 @@
 #include "Socket.hpp"
 #include "Client.hpp"
 #include "PollManager.hpp"
+#include "../http/processHttp.hpp"
+#include "../config/ServerConfig.hpp"
+#include "../config/ConfigParser.hpp"
 
 /*
 ** Server
@@ -85,6 +88,11 @@ class Server
 		** (routes, error pages, max body size) au Router de l'HTTP Layer.
 		*/
 		const ServerConfig& getConfigForClient(const Client* client) const;
+
+		/*
+		** Helper qui permet de return une socket via son fd dans la list _listening_sockets
+		*/
+		Socket *findListeningSocketByFd(int fd);
 
 	public:
 		Server();
