@@ -28,7 +28,7 @@ void Server::handleClientRead(int fd) {
 			std::cout << "Client " << fd << " disconnected" << std::endl;
 		} else if (_clients[fd]->getState() == PROCESSING) {
 			ProcessResult result = processHttp(_clients[fd]->getReadBuffer(), getConfigForClient(_clients[fd]));
-			_clients[fd]->setWriteBuffer(result.response);
+			_clients[fd]->setWriteBuffer(result.rawResponse);
 			_clients[fd]->setShouldClose(result.shouldClose);
 			_poll_manager.updateEvents(fd, POLLIN | POLLOUT);
 		} else if (_clients[fd]->getState() == CLOSING) {
