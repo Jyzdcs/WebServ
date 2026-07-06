@@ -2,14 +2,18 @@ NAME    = webserv
 CXX     = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 
-SRCS    = main.cpp $(shell find src -name "*.cpp")
-OBJS    = $(SRCS:src/%.cpp=obj/%.o)
+SRCS    = $(shell find src -name "*.cpp")
+OBJS    = $(SRCS:src/%.cpp=obj/%.o) obj/main.o
 INCS    = -I include
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
+
+obj/main.o: main.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCS) -c $< -o $@
 
 obj/%.o: src/%.cpp
 	@mkdir -p $(dir $@)

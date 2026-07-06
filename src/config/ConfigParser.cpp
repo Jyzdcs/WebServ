@@ -49,6 +49,49 @@ void ConfigParser::expect(TokenType type)
     advance();
   }
 
+std::string ConfigParser::takeValue(const std::string& directive)
+{
+    if (current().type != WORD && current().type != NUMBER)
+    {
+        std::ostringstream oss;
+        oss << directive << ": missing value at line " << current().line;
+        throw std::runtime_error(oss.str());
+    }
+    std::string value = current().value;
+    advance();
+    return value;
+}
+
+int ConfigParser::takeNumber(const std::string& directive)
+{
+    if (current().type != NUMBER)
+    {
+        std::ostringstream oss;
+        oss << directive << ": expected a number at line " << current().line;
+        throw std::runtime_error(oss.str());
+    }
+    const std::string& value = current().value;
+    for (size_t i = 0; i < value.size(); ++i)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(value[i])))
+        {
+            std::ostringstream oss;
+            oss << directive << ": '" << value << "' is not a valid number at line "
+                << current().line;
+            throw std::runtime_error(oss.str());
+        }
+    }
+    if (value.size() > 9)
+    {
+        std::ostringstream oss;
+        oss << directive << ": number '" << value << "' is too large at line "
+            << current().line;
+        throw std::runtime_error(oss.str());
+    }
+    advance();
+    return std::atoi(value.c_str());
+}
+
 ServerConfig ConfigParser::parseServer()
 {
     ServerConfig server;
@@ -74,33 +117,17 @@ void ConfigParser::parseServerDirective(ServerConfig& server)
     advance();
 
     if (name == "listen")
-    {
-        if (current().type != NUMBER)
-            throw std::runtime_error("listen expects a number");
-        server.setPort(std::atoi(current().value.c_str()));
-        advance();
-    }
+        server.setPort(takeNumber("listen"));
     else if (name == "host")
-    {
-        server.setHost(current().value);
-        advance();
-    }
+        server.setHost(takeValue("host"));
     else if (name == "server_name")
-    {
-        server.setServerName(current().value);
-        advance();
-    }
+        server.setServerName(takeValue("server_name"));
     else if (name == "client_max_body_size")
-    {
-        server.setMaxBodySize(parseSize(current().value));
-        advance();
-    }
+        server.setMaxBodySize(parseSize(takeValue("client_max_body_size")));
     else if (name == "error_page")
     {
-        int code = std::atoi(current().value.c_str());
-        advance();
-        server.addErrorPage(code, current().value);
-        advance();
+        int code = takeNumber("error_page");
+        server.addErrorPage(code, takeValue("error_page"));
     }
     else
         throw std::runtime_error("Unknown server directive: " + name);
@@ -112,8 +139,7 @@ LocationConfig ConfigParser::parseLocation()
     LocationConfig location;
 
     advance();
-    location.setPath(current().value);
-    advance();
+    location.setPath(takeValue("location"));
     expect(LBRACE);
 
     while (current().type != RBRACE && current().type != END_OF_FILE)
@@ -128,50 +154,34 @@ void ConfigParser::parseLocationDirective(LocationConfig &location)
     advance();
 
     if (name == "root")
-    {
-        location.setRoot(current().value);
-        advance();
-    }
+        location.setRoot(takeValue("root"));
     else if (name == "index")
-    {
-        location.setIndex(current().value);
-        advance();
-    }
+        location.setIndex(takeValue("index"));
     else if (name == "autoindex")
     {
-        if (current().value == "off")
+        std::string value = takeValue("autoindex");
+        if (value == "off")
             location.setAutoindex(false);
-        else if (current().value == "on")
+        else if (value == "on")
             location.setAutoindex(true);
         else
-            throw std::runtime_error("Unknown value: " + name + current().value);
-        advance();
+            throw std::runtime_error("autoindex: expected 'on' or 'off', got '" + value + "'");
     }
     else if (name == "methods")
     {
+        location.addMethod(takeValue("methods"));
         while (current().type != SEMICOLON && current().type != END_OF_FILE)
-        {
-            location.addMethod(current().value);
-            advance();
-        }
+            location.addMethod(takeValue("methods"));
     }
     else if (name == "upload_store")
-    {
-        location.setUploadPath(current().value);
-        advance();
-    }
+        location.setUploadPath(takeValue("upload_store"));
     else if (name == "cgi_extensions")
     {
-        location.setCgiExtension(current().value);
-        advance();
-        location.setCgiPath(current().value);
-        advance();
+        location.setCgiExtension(takeValue("cgi_extensions"));
+        location.setCgiPath(takeValue("cgi_extensions"));
     }
     else if (name == "redirect")
-    {
-        location.setRedirectUrl(current().value);
-        advance();
-    }
+        location.setRedirectUrl(takeValue("redirect"));
     else
         throw std::runtime_error("Unknown location directive: " + name);
     expect(SEMICOLON);

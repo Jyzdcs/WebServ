@@ -19,6 +19,8 @@ private:
     const Token         &current();
     void                advance();
     void                expect(TokenType type);
+    std::string         takeValue(const std::string& directive);
+    int                 takeNumber(const std::string& directive);
     ServerConfig        parseServer();
     LocationConfig      parseLocation();
     void                parseServerDirective(ServerConfig& server);

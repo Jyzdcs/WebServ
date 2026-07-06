@@ -2,7 +2,7 @@
 #include <sstream>
 #include <ctime>
 
-std::string ResponseBuilder::build(const HttpResponse& response)
+std::string ResponseBuilder::build(const HttpResponse& response, bool shouldClose)
 {
     std::ostringstream rawOutput;
 
@@ -19,8 +19,11 @@ std::string ResponseBuilder::build(const HttpResponse& response)
     strftime(dateBuf, sizeof(dateBuf), "%a, %d %b %Y %H:%M:%S GMT", gmt);
     rawOutput << "Date: " << dateBuf << "\r\n";
 
-    // on ferme la connexion après chaque réponse
-    rawOutput << "Connection: close\r\n";
+    rawOutput << "Connection: ";
+    if (shouldClose)
+        rawOutput << "close\r\n";
+    else
+        rawOutput << "keep-alive\r\n";
 
     // headers variables : Content-Type, Content-Length, Location, etc.
     std::map<std::string, std::string>::const_iterator headerIt;
