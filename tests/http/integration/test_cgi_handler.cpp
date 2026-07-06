@@ -2,6 +2,7 @@
 #include "../../../include/http/CgiHandler.hpp"
 #include "../../../include/http/processHttp.hpp"
 #include "../../../include/http/builders/HttpBuilders.hpp"
+#include <sys/wait.h>
 #include <iostream>
 #include <fstream>
 #include <sys/stat.h>

@@ -4,6 +4,7 @@
 #include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/config/LocationConfig.hpp"
 #include "../../../include/config/ServerConfig.hpp"
+#include <sys/wait.h>
 #include <iostream>
 #include <sstream>
 #include <fstream>

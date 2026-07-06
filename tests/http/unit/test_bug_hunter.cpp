@@ -29,6 +29,7 @@
 #include "../../../include/http/CgiHandler.hpp"
 #include "../../../include/http/processHttp.hpp"
 #include "../../../include/http/builders/HttpBuilders.hpp"
+#include <sys/wait.h>
 #include "../../../include/http/utils/StringUtils.hpp"
 #include "../../../include/http/utils/HttpUtils.hpp"
 #include "../../../include/config/LocationConfig.hpp"
