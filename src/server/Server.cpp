@@ -25,15 +25,20 @@ void Server::handleClientRead(int fd) {
 		
 		if (n_read == 0 and _clients[fd]->getState() == CLOSING) {
 			closeClient(_clients[fd]->getFd());
+			std::cout << "Client " << fd << " disconnected" << std::endl;
 		} else if (_clients[fd]->getState() == PROCESSING) {
-			_clients[fd]->setWriteBuffer(processHttp(_clients[fd]->getReadBuffer(), getConfigForClient(_clients[fd])));
+			ProcessResult result = processHttp(_clients[fd]->getReadBuffer(), getConfigForClient(_clients[fd]));
+			_clients[fd]->setWriteBuffer(result.response);
+			_clients[fd]->setShouldClose(result.shouldClose);
 			_poll_manager.updateEvents(fd, POLLIN | POLLOUT);
 		} else if (_clients[fd]->getState() == CLOSING) {
 			closeClient(_clients[fd]->getFd());
+			std::cout << "Client " << fd << " disconnected" << std::endl;
 		}
 	} catch (std::exception& err) {
 		closeClient(fd);
-		std::cout << err.what() << std::endl;
+		std::cout << "Client " << fd << " disconnected" << std::endl;
+		std::cout << "Exception: " << err.what() << std::endl;
 	}
 };
 
@@ -41,15 +46,20 @@ void Server::handleClientWrite(int fd) {
 	try {
 		if (_clients[fd]->getState() == SENDING_RESPONSE) {
 			_clients[fd]->sendData();
-			if (_clients[fd]->getState() == DONE) {
+			if (_clients[fd]->shouldClose() and _clients[fd]->getState() == DONE) {
+				std::cout << "KeepAlive: false" << std::endl;
+				closeClient(_clients[fd]->getFd());
+				std::cout << "Client " << fd << " has been disconnected cause of keepAlive set to false" << std::endl;
+			} else if (_clients[fd]->getState() == DONE) {
 				_clients[fd]->setState(READING_REQUEST);
 				_poll_manager.updateEvents(fd, POLLIN);
 			} else if (_clients[fd]->getState() == CLOSING) {
 				closeClient(_clients[fd]->getFd());
+				std::cout << "Client " << fd << " disconnected" << std::endl;
 			}
 		}
 	} catch (std::exception& err) {
-		std::cout << err.what() << std::endl;
+		std::cout << "Exception: " << err.what() << std::endl;
 	}
 };
 
@@ -143,7 +153,7 @@ void Server::run() {
 			** Si le fd observé est un listener et quil est readable = client essaye de se connecter
 			*/
 			if (socket and _poll_manager.isReadable(fd)) {
-				std::cout << "handleNewConnection" << std::endl;
+				// std::cout << "handleNewConnection" << std::endl;
 				handleNewConnection(socket);
 				continue;
 			}
@@ -159,10 +169,10 @@ void Server::run() {
 			** soit un client s'est deconnecter (POLLER | POLLHUP)
 			*/
 			if (_poll_manager.isReadable(fd)) {
-				std::cout << "handleClientRead" << std::endl;
+				// std::cout << "handleClientRead" << std::endl;
 				handleClientRead(fd);
 			} else if (_poll_manager.isWritable(fd)) {
-				std::cout << "handleClientWrite" << std::endl;
+				// std::cout << "handleClientWrite" << std::endl;
 				handleClientWrite(fd);
 			}
 		}

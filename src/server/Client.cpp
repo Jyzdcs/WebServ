@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 
 Client::Client(int fd, int server_port) 
-	: _fd(fd), _server_port(server_port), _state(READING_REQUEST), _read_buffer(), _write_buffer(), _write_offset(0) {
+	: _fd(fd), _server_port(server_port), _shouldClose(false), _state(READING_REQUEST), _read_buffer(), _write_buffer(), _write_offset(0) {
 	_last_activity = getCurrentTimeStamp();
 };
 
@@ -21,6 +21,14 @@ long Client::getCurrentTimeStamp() const {
 
 void Client::setReadBuffer(std::string buf) {
 	_read_buffer = buf;
+};
+
+void Client::setShouldClose(bool shouldClose) {
+	_shouldClose = shouldClose;
+};
+
+bool Client::shouldClose() {
+	return _shouldClose;
 };
 
 int Client::getFd() const {
