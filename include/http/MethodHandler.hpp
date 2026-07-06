@@ -9,10 +9,6 @@
 
 class MethodHandler {
 public:
-    // Dispatche la requête vers GET/POST/DELETE ou CGI (async).
-    // Retourne COMPLETE avec httpResponse pour les cas statiques,
-    // CGI_PENDING avec stdoutFd+pid+deadline pour les CGI.
-    // shouldClose est défini par l'appelant (processHttp) après le retour.
     ProcessResult handle(const HttpRequest& req, const LocationConfig& loc,
                          const ServerConfig& server);
 
