@@ -39,6 +39,10 @@ HttpResponse MethodHandler::handlePost(const HttpRequest& request, const Locatio
         return buildHttpError(500, "Internal Server Error");
 
     std::string uriPath  = extractUriPath(request.uri);
+    // Strip location prefix (alias semantics)
+    std::string locPath  = location.getPath();
+    if (!locPath.empty() && locPath != "/" && uriPath.substr(0, locPath.size()) == locPath)
+        uriPath = uriPath.substr(locPath.size());
     std::string filename = extractFilename(uriPath);
     if (filename.empty())
         return buildHttpError(400, "Bad Request");

@@ -72,7 +72,7 @@ static void test_get_existing_file()
     loc.setRoot("www");
     loc.addMethod("GET");
 
-    HttpResponse res = handler.handle(makeGet("/index.html"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/index.html"), loc, server).httpResponse;
     check("GET existing file: 200",          res.status_code == 200);
     check("GET existing file: body non vide", !res.body.empty());
     check("GET existing file: Content-Type text/html", res.headers["Content-Type"] == "text/html");
@@ -89,7 +89,7 @@ static void test_get_not_found()
     loc.setRoot("www");
     loc.addMethod("GET");
 
-    HttpResponse res = handler.handle(makeGet("/nonexistent.html"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/nonexistent.html"), loc, server).httpResponse;
     check("GET 404: status 404", res.status_code == 404);
 }
 
@@ -103,7 +103,7 @@ static void test_get_method_not_allowed()
     loc.setRoot("www");
     loc.addMethod("POST");
 
-    HttpResponse res = handler.handle(makeGet("/readonly/file.html"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/readonly/file.html"), loc, server).httpResponse;
     check("GET method not allowed: 405", res.status_code == 405);
 }
 
@@ -117,7 +117,7 @@ static void test_get_redirect()
     loc.setRedirectUrl("https://new-site.com");
     loc.addMethod("GET");
 
-    HttpResponse res = handler.handle(makeGet("/old"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/old"), loc, server).httpResponse;
     check("GET redirect: 301",             res.status_code == 301);
     check("GET redirect: Location header", res.headers["Location"] == "https://new-site.com");
 }
@@ -133,7 +133,7 @@ static void test_get_directory_with_index()
     loc.setIndex("index.html");
     loc.addMethod("GET");
 
-    HttpResponse res = handler.handle(makeGet("/"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/"), loc, server).httpResponse;
     check("GET dir with index: 200",          res.status_code == 200);
     check("GET dir with index: body non vide", !res.body.empty());
 }
@@ -149,7 +149,7 @@ static void test_get_directory_no_index_no_autoindex()
     loc.setAutoindex(false);
     loc.addMethod("GET");
 
-    HttpResponse res = handler.handle(makeGet("/"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/"), loc, server).httpResponse;
     check("GET dir no index no autoindex: 403", res.status_code == 403);
 }
 
@@ -164,7 +164,7 @@ static void test_get_directory_autoindex()
     loc.setAutoindex(true);
     loc.addMethod("GET");
 
-    HttpResponse res = handler.handle(makeGet("/"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/"), loc, server).httpResponse;
     check("GET dir autoindex: 200",             res.status_code == 200);
     check("GET dir autoindex: body contient ul", res.body.find("<ul>") != std::string::npos);
 }
@@ -183,7 +183,7 @@ static void test_get_css_content_type()
     loc.setRoot("www");
     loc.addMethod("GET");
 
-    HttpResponse res = handler.handle(makeGet("/style.css"), loc, server);
+    HttpResponse res = handler.handle(makeGet("/style.css"), loc, server).httpResponse;
     check("GET css: 200",              res.status_code == 200);
     check("GET css: Content-Type css", res.headers["Content-Type"] == "text/css");
 

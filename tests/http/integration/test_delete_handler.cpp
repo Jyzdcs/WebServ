@@ -55,7 +55,7 @@ int main()
         LocationConfig loc = makeLoc("/", "/tmp", "DELETE");
         server.addLocation(loc);
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("DELETE", "/to_delete.txt"), loc, server);
+        HttpResponse res = handler.handle(makeReq("DELETE", "/to_delete.txt"), loc, server).httpResponse;
         check("DELETE fichier existant: 204", res.status_code == 204);
 
         struct stat st;
@@ -66,7 +66,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/", "/tmp", "DELETE");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("DELETE", "/inexistant.txt"), loc, server);
+        HttpResponse res = handler.handle(makeReq("DELETE", "/inexistant.txt"), loc, server).httpResponse;
         check("DELETE fichier inexistant: 404", res.status_code == 404);
     }
 
@@ -74,7 +74,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/", "/tmp", "DELETE");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("DELETE", "/"), loc, server);
+        HttpResponse res = handler.handle(makeReq("DELETE", "/"), loc, server).httpResponse;
         check("DELETE dossier: 403", res.status_code == 403);
     }
 
@@ -82,7 +82,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/", "/tmp", "GET");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("DELETE", "/to_delete.txt"), loc, server);
+        HttpResponse res = handler.handle(makeReq("DELETE", "/to_delete.txt"), loc, server).httpResponse;
         check("DELETE methode non autorisee: 405", res.status_code == 405);
     }
 
@@ -92,8 +92,8 @@ int main()
         LocationConfig locDel = makeLoc("/", "/tmp", "DELETE");
         LocationConfig locGet = makeLoc("/", "/tmp", "GET");
         MethodHandler handler;
-        handler.handle(makeReq("DELETE", "/gone.txt"), locDel, server);
-        HttpResponse res = handler.handle(makeReq("GET", "/gone.txt"), locGet, server);
+        (void)handler.handle(makeReq("DELETE", "/gone.txt"), locDel, server).httpResponse;
+        HttpResponse res = handler.handle(makeReq("GET", "/gone.txt"), locGet, server).httpResponse;
         check("DELETE puis GET: fichier plus accessible (404)", res.status_code == 404);
     }
 
@@ -101,7 +101,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/", "/tmp", "DELETE");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("DELETE", "/../etc/passwd"), loc, server);
+        HttpResponse res = handler.handle(makeReq("DELETE", "/../etc/passwd"), loc, server).httpResponse;
         check("DELETE path traversal: 400", res.status_code == 400);
     }
 
@@ -109,7 +109,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/", "/tmp", "DELETE");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("DELETE", "/uploads/../secret.txt"), loc, server);
+        HttpResponse res = handler.handle(makeReq("DELETE", "/uploads/../secret.txt"), loc, server).httpResponse;
         check("DELETE path traversal embede: 400", res.status_code == 400);
     }
 

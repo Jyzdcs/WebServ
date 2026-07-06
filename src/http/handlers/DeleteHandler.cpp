@@ -31,6 +31,12 @@ static HttpResponse deleteFile(const std::string& filePath)
 HttpResponse MethodHandler::handleDelete(const HttpRequest& request, const LocationConfig& location)
 {
     std::string uriPath  = extractUriPath(request.uri);
+    // Strip location prefix (same alias semantics as GET/POST)
+    std::string locPath  = location.getPath();
+    if (!locPath.empty() && locPath != "/" && uriPath.substr(0, locPath.size()) == locPath)
+        uriPath = uriPath.substr(locPath.size());
+    if (uriPath.empty() || uriPath[0] != '/')
+        uriPath = "/" + uriPath;
     std::string filePath = location.getRoot() + uriPath;
     return deleteFile(filePath);
 }

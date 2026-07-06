@@ -14,7 +14,8 @@
 **     src/http/utils/StringUtils.cpp \
 **     src/http/cgi/env.cpp \
 **     src/http/cgi/output.cpp \
-**     src/http/cgi/execute.cpp \
+**     src/http/cgi/start.cpp \
+**     src/http/cgi/finish.cpp \
 **     src/config/LocationConfig.cpp \
 **     src/config/ServerConfig.cpp \
 **     src/config/Config.cpp \
@@ -26,6 +27,8 @@
 #include "../../../include/http/Router.hpp"
 #include "../../../include/http/ResponseBuilder.hpp"
 #include "../../../include/http/CgiHandler.hpp"
+#include "../../../include/http/processHttp.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/http/utils/StringUtils.hpp"
 #include "../../../include/http/utils/HttpUtils.hpp"
 #include "../../../include/config/LocationConfig.hpp"
@@ -36,6 +39,9 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <csignal>
+#include <ctime>
+#include <cstdlib>
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                             */
@@ -43,6 +49,49 @@
 
 static int g_passed = 0;
 static int g_failed = 0;
+
+// Exécute un CGI de façon synchrone (test uniquement).
+// N'utilise pas finishCgi() (interface serveur) — appelle les primitives directement.
+static HttpResponse runCgiSync(const HttpRequest& req, const LocationConfig& loc,
+                                const ServerConfig& server)
+{
+    (void)server;
+    CgiHandler    cgi;
+    ProcessResult pr = cgi.start(req, loc);
+
+    if (pr.state == ProcessResult::COMPLETE)
+        return pr.httpResponse;
+
+    std::string output;
+    char        buf[4096];
+    bool        timedOut = false;
+    while (true)
+    {
+        ssize_t n = read(pr.stdoutFd, buf, sizeof(buf));
+        if (n > 0)      output.append(buf, n);
+        else if (n == 0) break;
+        else
+        {
+            if (time(NULL) >= pr.deadline) { timedOut = true; kill(pr.pid, SIGKILL); break; }
+            usleep(5000);
+        }
+    }
+    close(pr.stdoutFd);
+
+    int exitStatus = 0;
+    waitpid(pr.pid, &exitStatus, 0);
+
+    if (timedOut)
+        return buildHttpError(504, "Gateway Timeout");
+    if (WIFEXITED(exitStatus) && WEXITSTATUS(exitStatus) != 0)
+        return buildHttpError(500, "Internal Server Error");
+    if (WIFSIGNALED(exitStatus))
+        return buildHttpError(500, "Internal Server Error");
+    if (output.empty())
+        return buildHttpError(500, "Internal Server Error");
+
+    return cgi.parseOutput(output);
+}
 
 static void proveStr(const std::string& label,
                      const std::string& expected,
@@ -175,7 +224,7 @@ static void bug2_post_no_upload_path_returns_500()
     req.body    = "name=test&value=42";
 
     MethodHandler handler;
-    HttpResponse  resp = handler.handle(req, loc, server);
+    HttpResponse  resp = handler.handle(req, loc, server).httpResponse;
 
     std::cout << "  Scenario: POST /api/data — POST allowed, no upload_path, no CGI\n";
     std::cout << "  Got: " << resp.status_code << " " << resp.status_msg << "\n\n";
@@ -215,7 +264,7 @@ static void bug3_post_empty_body_returns_400()
     req.body    = "";   /* Content-Length: 0 scenario */
 
     MethodHandler handler;
-    HttpResponse  resp = handler.handle(req, loc, server);
+    HttpResponse  resp = handler.handle(req, loc, server).httpResponse;
 
     std::cout << "  Scenario: POST /upload/trigger.txt with empty body (Content-Length: 0)\n";
     std::cout << "  Got: " << resp.status_code << " " << resp.status_msg << "\n\n";
@@ -395,8 +444,7 @@ static void bug7_cgi_env_missing_required_vars()
     req.version = "HTTP/1.1";
     req.headers["Host"] = "localhost:8080";
 
-    CgiHandler   handler;
-    HttpResponse resp = handler.execute(req, loc);
+    HttpResponse resp = runCgiSync(req, loc, ServerConfig());
 
     std::cout << "  CGI output (env dump):\n";
     /* Print each line prefixed */
@@ -455,7 +503,7 @@ static void bug8_autoindex_includes_dot_entries()
     req.version = "HTTP/1.1";
 
     MethodHandler handler;
-    HttpResponse  resp = handler.handle(req, loc, server);
+    HttpResponse  resp = handler.handle(req, loc, server).httpResponse;
 
     bool hasDotLink    = (resp.body.find(">.<")  != std::string::npos ||
                           resp.body.find("\"/.\"") != std::string::npos ||
@@ -552,7 +600,7 @@ static void bug10_delete_response_has_no_headers()
     req.version = "HTTP/1.1";
 
     MethodHandler handler;
-    HttpResponse  resp = handler.handle(req, loc, server);
+    HttpResponse  resp = handler.handle(req, loc, server).httpResponse;
 
     std::cout << "  DELETE of '" << tmpFile << "'\n";
     std::cout << "  status_code = " << resp.status_code << " (" << resp.status_msg << ")\n";
@@ -698,7 +746,7 @@ static void bug13_missing_index_ignores_autoindex()
     req.version = "HTTP/1.1";
 
     MethodHandler handler;
-    HttpResponse  resp = handler.handle(req, loc, server);
+    HttpResponse  resp = handler.handle(req, loc, server).httpResponse;
 
     std::cout << "  root=/tmp, index=<missing>, autoindex=true\n";
     std::cout << "  Got: " << resp.status_code << " " << resp.status_msg << "\n\n";
