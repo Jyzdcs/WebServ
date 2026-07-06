@@ -13,7 +13,6 @@
 #include <fcntl.h>
 
 Socket::Socket(ServerConfig serverConf) {
-	std::cout << "[Socket] ctor called\n";
 	struct addrinfo hints, *ai, *p;
 	int yes=1;
 	int rv;
@@ -84,7 +83,6 @@ Socket::Socket(ServerConfig serverConf) {
   
 Socket::~Socket() {
 	close(_fd);
-	std::cout << "[Socket] dtor called\n";
 };
 
 
@@ -122,6 +120,7 @@ int Socket::acceptConnection() const {
 		std::cout << "Line 120 in Socket.cpp ";
 		throw FcntlFailed();
 	}
+	std::cout << "New connection, client fd : " << newConnectionFd << std::endl;
 	return newConnectionFd;
 };
 

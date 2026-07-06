@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 
 Client::Client(int fd, int server_port) 
-	: _fd(fd), _server_port(server_port), _state(READING_REQUEST), _read_buffer(), _write_buffer(), _write_offset(0) {
+	: _fd(fd), _server_port(server_port), _shouldClose(false), _state(READING_REQUEST), _read_buffer(), _write_buffer(), _write_offset(0) {
 	_last_activity = getCurrentTimeStamp();
 };
 
@@ -23,22 +23,30 @@ void Client::setReadBuffer(std::string buf) {
 	_read_buffer = buf;
 };
 
+void Client::setShouldClose(bool shouldClose) {
+	_shouldClose = shouldClose;
+};
+
+bool Client::shouldClose() {
+	return _shouldClose;
+};
+
 int Client::getFd() const {
 	return _fd;
 };
 
 int Client::receiveData() {
-	char buf[2006];
+	char buf[4096];
 	int	n_read;
-	
-	n_read = read(_fd, buf, sizeof(buf));
-	std::cout << "n_read: " << n_read << std::endl;
+
+	n_read = recv(_fd, buf, sizeof(buf), 0);
+	// std::cout << "n_read: " << n_read << std::endl;
 	if (n_read > 0) {
 		_read_buffer.append(buf, n_read);
 		updateLastActivity();
 		if (isRequestComplete()) {
 			_state = PROCESSING;
-			std::cout << _state << std::endl;
+			// std::cout << _state << std::endl;
 		}
 	} else if (n_read == 0) {
 		std::cout << "Client " << _fd << " disconnected" << std::endl;
@@ -52,7 +60,7 @@ int Client::receiveData() {
 };
 
 bool Client::isRequestComplete() const {
-	std::cout << "Request Content: " << std::endl << "`" << _read_buffer << "`" << std::endl;
+	// std::cout << "Request Content: " << std::endl << "`" << _read_buffer << "`" << std::endl;
 	// Trouver l'index de la fin du header
 	std::string::size_type header_end = _read_buffer.find("\r\n\r\n");
 
@@ -132,9 +140,9 @@ int Client::sendData() {
 	** Si send a ecrit des donnees
 	*/
 	if (sent > 0) {
-	/*
-	** Faire avancer l'index _write_offset
-	*/
+		/*
+		** Faire avancer l'index _write_offset
+		*/
 		_write_offset += sent;
 		updateLastActivity();
 		if (_write_offset == _write_buffer.size())

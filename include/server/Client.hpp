@@ -42,6 +42,7 @@ class Client
 	private:
 		int _fd;
 		int _server_port;
+		bool _shouldClose;
 		ClientState _state;
 
 		std::string _read_buffer;
@@ -64,6 +65,8 @@ class Client
 		// Utils
 		void setReadBuffer(std::string);
 
+		void setShouldClose(bool shouldClose);
+		bool shouldClose();
 		// --- Accès au fd ---
 
 		/*
