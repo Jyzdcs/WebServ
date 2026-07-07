@@ -176,7 +176,7 @@ int main()
 
         for (int i = 0; i < 8; i++)
         {
-            HttpResponse res = handler.handle(makeReq("GET", traversals[i]), loc, server);
+            HttpResponse res = handler.handle(makeReq("GET", traversals[i]), loc, server).httpResponse;
             check("GET traversal: " + traversals[i].substr(0, 30) + " → pas 200",
                   res.status_code != 200);
         }
@@ -192,7 +192,7 @@ int main()
         };
         for (int i = 0; i < 3; i++)
         {
-            HttpResponse res = handler.handle(makeReq("POST", traversals[i], "evil"), loc, server);
+            HttpResponse res = handler.handle(makeReq("POST", traversals[i], "evil"), loc, server).httpResponse;
             check("POST traversal: " + traversals[i].substr(0, 35) + " → 400",
                   res.status_code == 400);
         }
@@ -208,7 +208,7 @@ int main()
         };
         for (int i = 0; i < 3; i++)
         {
-            HttpResponse res = handler.handle(makeReq("DELETE", traversals[i]), loc, server);
+            HttpResponse res = handler.handle(makeReq("DELETE", traversals[i]), loc, server).httpResponse;
             check("DELETE traversal → 400", res.status_code == 400);
         }
     }
@@ -218,11 +218,16 @@ int main()
 
     {
         LocationConfig loc = makeGetLoc();
-        std::string methods[] = { "PUT", "PATCH", "OPTIONS", "HEAD", "TRACE", "CONNECT", "FOOBAR" };
-        for (int i = 0; i < 7; i++)
+        std::string methods[] = { "PUT", "PATCH", "OPTIONS", "TRACE", "CONNECT", "FOOBAR" };
+        for (int i = 0; i < 6; i++)
         {
-            HttpResponse res = handler.handle(makeReq(methods[i], "/index.html"), loc, server);
+            HttpResponse res = handler.handle(makeReq(methods[i], "/index.html"), loc, server).httpResponse;
             check("methode inconnue " + methods[i] + " → 405", res.status_code == 405);
+        }
+        // HEAD est autorisé si GET l'est (RFC 7231) — on vérifie que c'est 200
+        {
+            HttpResponse res = handler.handle(makeReq("HEAD", "/index.html"), loc, server).httpResponse;
+            check("HEAD autorise si GET → 200", res.status_code == 200);
         }
     }
 
@@ -301,7 +306,7 @@ int main()
 
         LocationConfig loc = makeGetLoc();
         ServerConfig   srv; srv.addLocation(loc);
-        HttpResponse res = handler.handle(r, loc, srv);
+        HttpResponse res = handler.handle(r, loc, srv).httpResponse;
         check("HTTP/1.0 GET index → 200", res.status_code == 200);
     }
 
@@ -311,7 +316,7 @@ int main()
         HttpRequest r = p.parse("GET /index.html HTTP/1.1\r\nHost: localhost\r\n\r\n");
         LocationConfig loc = makeGetLoc();
         ServerConfig   srv; srv.addLocation(loc);
-        HttpResponse res = handler.handle(r, loc, srv);
+        HttpResponse res = handler.handle(r, loc, srv).httpResponse;
         std::string raw = builder.build(res, true);
 
         check("pipeline: commence par HTTP/1.1", raw.substr(0, 8) == "HTTP/1.1");
@@ -323,7 +328,7 @@ int main()
     {
         LocationConfig loc; loc.setPath("/"); loc.setRoot("www"); loc.addMethod("GET");
         ServerConfig   srv; srv.addLocation(loc);
-        HttpResponse res = handler.handle(makeReq("POST", "/index.html", "data"), loc, srv);
+        HttpResponse res = handler.handle(makeReq("POST", "/index.html", "data"), loc, srv).httpResponse;
         check("POST sur GET-only → 405", res.status_code == 405);
         std::string raw = builder.build(res, true);
         check("405 sérialisé correctement", raw.find("405") != std::string::npos);

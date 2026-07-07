@@ -1,13 +1,19 @@
 #include "../../../include/http/CgiHandler.hpp"
 #include "../../../include/http/MethodHandler.hpp"
+#include "../../../include/http/processHttp.hpp"
+#include "../../../include/http/builders/HttpBuilders.hpp"
 #include "../../../include/config/LocationConfig.hpp"
 #include "../../../include/config/ServerConfig.hpp"
+#include <sys/wait.h>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <csignal>
+#include <ctime>
+#include <cstdlib>
 
-// ── Counters ──────────────────────────────────────────────────────────────────
 static int passed = 0;
 static int failed = 0;
 
@@ -17,7 +23,6 @@ static void check(const std::string& label, bool cond)
     else       { std::cout << "[KO] " << label << "\n"; ++failed; }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 static LocationConfig makeCgiLoc(const std::string& ext = ".py",
                                   const std::string& interp = "/usr/bin/python3",
                                   const std::string& root = "www")
@@ -57,7 +62,6 @@ static HttpRequest makePost(const std::string& uri,
     return req;
 }
 
-// ── Section helpers ───────────────────────────────────────────────────────────
 static void section(const std::string& title)
 {
     std::cout << "\n── " << title << " ";
@@ -65,21 +69,69 @@ static void section(const std::string& title)
     std::cout << "\n";
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// Exécute un CGI de façon synchrone (test uniquement).
+// N'utilise pas finishCgi() (interface serveur) — appelle les primitives directement.
+static HttpResponse runCgiSync(const HttpRequest& req, const LocationConfig& loc,
+                                const ServerConfig& server)
+{
+    (void)server;
+    CgiHandler    cgi;
+    ProcessResult pr = cgi.start(req, loc);
+
+    if (pr.state == ProcessResult::COMPLETE)
+        return pr.httpResponse;
+
+    std::string output;
+    char        buf[4096];
+    bool        timedOut = false;
+
+    while (true)
+    {
+        ssize_t n = read(pr.stdoutFd, buf, sizeof(buf));
+        if (n > 0)
+            output.append(buf, n);
+        else if (n == 0)
+            break;
+        else
+        {
+            if (time(NULL) >= pr.deadline)
+            {
+                timedOut = true;
+                kill(pr.pid, SIGKILL);
+                break;
+            }
+            usleep(5000);
+        }
+    }
+    close(pr.stdoutFd);
+
+    int exitStatus = 0;
+    waitpid(pr.pid, &exitStatus, 0);
+
+    if (timedOut)
+        return buildHttpError(504, "Gateway Timeout");
+    if (WIFEXITED(exitStatus) && WEXITSTATUS(exitStatus) != 0)
+        return buildHttpError(500, "Internal Server Error");
+    if (WIFSIGNALED(exitStatus))
+        return buildHttpError(500, "Internal Server Error");
+    if (output.empty())
+        return buildHttpError(500, "Internal Server Error");
+
+    return cgi.parseOutput(output);
+}
+
 int main()
 {
-    CgiHandler    cgi;
-    MethodHandler handler;
-    ServerConfig  server;
+    MethodHandler  handler;
+    ServerConfig   server;
     LocationConfig loc = makeCgiLoc();
     server.addLocation(loc);
 
     // ══════════════════════════════════════════════════════════════════════════
     section("ENV VARS TRANSMISSION");
 
-    // REQUEST_METHOD GET
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/env_dump.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/env_dump.py"), loc, server);
         check("env: status 200", res.status_code == 200);
         check("env: REQUEST_METHOD=GET", res.body.find("REQUEST_METHOD=GET") != std::string::npos);
         check("env: GATEWAY_INTERFACE=CGI/1.1", res.body.find("GATEWAY_INTERFACE=CGI/1.1") != std::string::npos);
@@ -87,24 +139,21 @@ int main()
         check("env: SCRIPT_FILENAME non vide", res.body.find("SCRIPT_FILENAME=__MISSING__") == std::string::npos);
     }
 
-    // REQUEST_METHOD POST
     {
-        HttpResponse res = cgi.execute(makePost("/cgi-bin/env_dump.py", "x=1"), loc);
+        HttpResponse res = runCgiSync(makePost("/cgi-bin/env_dump.py", "x=1"), loc, server);
         check("env POST: REQUEST_METHOD=POST", res.body.find("REQUEST_METHOD=POST") != std::string::npos);
         check("env POST: CONTENT_LENGTH=3", res.body.find("CONTENT_LENGTH=3") != std::string::npos);
         check("env POST: CONTENT_TYPE present", res.body.find("CONTENT_TYPE=application/x-www-form-urlencoded") != std::string::npos);
     }
 
-    // QUERY_STRING
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/env_dump.py?name=Byron&lang=cpp"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/env_dump.py?name=Byron&lang=cpp"), loc, server);
         check("env: QUERY_STRING=name=Byron&lang=cpp",
               res.body.find("QUERY_STRING=name=Byron&lang=cpp") != std::string::npos);
     }
 
-    // HTTP_HOST
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/env_dump.py", "myserver:8080"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/env_dump.py", "myserver:8080"), loc, server);
         check("env: HTTP_HOST=myserver:8080",
               res.body.find("HTTP_HOST=myserver:8080") != std::string::npos);
     }
@@ -112,40 +161,35 @@ int main()
     // ══════════════════════════════════════════════════════════════════════════
     section("POST BODY TRANSMISSION");
 
-    // echo exact body
     {
         std::string body = "hello_webserv_42";
-        HttpResponse res = cgi.execute(makePost("/cgi-bin/echo_post.py", body), loc);
+        HttpResponse res = runCgiSync(makePost("/cgi-bin/echo_post.py", body), loc, server);
         check("POST echo: status 200", res.status_code == 200);
         check("POST echo: body identique", res.body == body);
     }
 
-    // body avec caracteres speciaux
     {
         std::string body = "data=hello%20world&value=42&special=!@#$";
-        HttpResponse res = cgi.execute(makePost("/cgi-bin/echo_post.py", body), loc);
+        HttpResponse res = runCgiSync(makePost("/cgi-bin/echo_post.py", body), loc, server);
         check("POST echo: special chars transmis", res.body == body);
     }
 
-    // body vide
     {
-        HttpResponse res = cgi.execute(makePost("/cgi-bin/echo_post.py", ""), loc);
+        HttpResponse res = runCgiSync(makePost("/cgi-bin/echo_post.py", ""), loc, server);
         check("POST echo: body vide → 200", res.status_code == 200);
         check("POST echo: body vide → response vide", res.body.empty());
     }
 
-    // body large (10KB)
     {
         std::string body(10 * 1024, 'Z');
-        HttpResponse res = cgi.execute(makePost("/cgi-bin/echo_post.py", body), loc);
+        HttpResponse res = runCgiSync(makePost("/cgi-bin/echo_post.py", body), loc, server);
         check("POST echo: 10KB body transmis", res.body.size() == body.size());
         check("POST echo: contenu correct", res.body == body);
     }
 
-    // POST form parsing
     {
-        HttpResponse res = cgi.execute(
-            makePost("/cgi-bin/post_form.py", "username=alice&age=30&city=Paris"), loc);
+        HttpResponse res = runCgiSync(
+            makePost("/cgi-bin/post_form.py", "username=alice&age=30&city=Paris"), loc, server);
         check("POST form: username=alice", res.body.find("username=alice") != std::string::npos);
         check("POST form: age=30",         res.body.find("age=30") != std::string::npos);
         check("POST form: city=Paris",     res.body.find("city=Paris") != std::string::npos);
@@ -153,10 +197,9 @@ int main()
               res.body.find("CONTENT_TYPE=application/x-www-form-urlencoded") != std::string::npos);
     }
 
-    // POST avec Content-Type: application/json
     {
         std::string json = "{\"key\":\"value\",\"num\":42}";
-        HttpResponse res = cgi.execute(makePost("/cgi-bin/echo_post.py", json, "application/json"), loc);
+        HttpResponse res = runCgiSync(makePost("/cgi-bin/echo_post.py", json, "application/json"), loc, server);
         check("POST json: body correct", res.body == json);
     }
 
@@ -164,12 +207,12 @@ int main()
     section("QUERY STRING PARSING");
 
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/hello.py?name=Byron"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/hello.py?name=Byron"), loc, server);
         check("query: name dans body", res.body.find("Byron") != std::string::npos);
     }
 
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/json_api.py?name=Alice%20Smith"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/json_api.py?name=Alice%20Smith"), loc, server);
         check("query: URL-decoded name", res.body.find("Alice Smith") != std::string::npos);
         check("query: content-type JSON",
               res.headers.count("Content-Type") > 0 &&
@@ -177,7 +220,7 @@ int main()
     }
 
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/env_dump.py?"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/env_dump.py?"), loc, server);
         check("query vide: QUERY_STRING=", res.body.find("QUERY_STRING=\n") != std::string::npos ||
                                            res.body.find("QUERY_STRING=\r\n") != std::string::npos);
     }
@@ -185,9 +228,8 @@ int main()
     // ══════════════════════════════════════════════════════════════════════════
     section("CUSTOM STATUS CODES FROM CGI");
 
-    // 302 redirect
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/redirect.py?to=https://42.fr"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/redirect.py?to=https://42.fr"), loc, server);
         check("CGI 302: status 302", res.status_code == 302);
         check("CGI 302: Location header present", res.headers.count("Location") > 0);
         check("CGI 302: Location correct",
@@ -195,9 +237,8 @@ int main()
               res.headers.at("Location") == "https://42.fr");
     }
 
-    // 404 from CGI
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/custom_404.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/custom_404.py"), loc, server);
         check("CGI custom 404: status 404", res.status_code == 404);
         check("CGI custom 404: body present", res.body.find("Custom 404") != std::string::npos);
     }
@@ -206,15 +247,14 @@ int main()
     section("CONTENT-TYPE PROPAGATION");
 
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/json_api.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/json_api.py"), loc, server);
         check("JSON CT: application/json", res.headers.count("Content-Type") > 0 &&
               res.headers.at("Content-Type").find("application/json") != std::string::npos);
         check("JSON CT: body is JSON", res.body.find("{\"status\":\"ok\"") != std::string::npos);
     }
 
-    // No Content-Type → server adds default text/html
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/no_content_type.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/no_content_type.py"), loc, server);
         check("no CT: status 200", res.status_code == 200);
         check("no CT: Content-Type added by server", res.headers.count("Content-Type") > 0);
         check("no CT: body present", res.body.find("body without") != std::string::npos);
@@ -224,7 +264,7 @@ int main()
     section("LARGE OUTPUT");
 
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/large_output.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/large_output.py"), loc, server);
         check("large: status 200", res.status_code == 200);
         check("large: body = 100KB", res.body.size() == 100 * 1024);
         check("large: content correct", res.body.find_first_not_of('A') == std::string::npos);
@@ -233,41 +273,36 @@ int main()
     // ══════════════════════════════════════════════════════════════════════════
     section("ERROR HANDLING");
 
-    // script inexistant → 404
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/doesnotexist.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/doesnotexist.py"), loc, server);
         check("404: script inexistant → 404", res.status_code == 404);
     }
 
-    // script crash → 500
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/crash.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/crash.py"), loc, server);
         check("500: script crash → 500", res.status_code == 500);
     }
 
-    // script non executable → 403
     {
         std::ofstream f("www/cgi-bin/noperm.py");
         f << "#!/usr/bin/env python3\nprint('Content-Type: text/html\\n\\nhello')\n";
         f.close();
         chmod("www/cgi-bin/noperm.py", 0644);
 
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/noperm.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/noperm.py"), loc, server);
         check("403: non executable → 403", res.status_code == 403);
         remove("www/cgi-bin/noperm.py");
     }
 
-    // script qui ecrit sur stderr → pas de crash, 200
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/stderr_safe.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/stderr_safe.py"), loc, server);
         check("stderr: pas de crash", res.status_code == 200);
         check("stderr: body correct", res.body.find("stderr_ok") != std::string::npos);
     }
 
-    // script infinite (timeout) → 504
     {
         std::cout << "  [wait] timeout test (5s)..." << std::flush;
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/infinite.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/infinite.py"), loc, server);
         std::cout << "\n";
         check("timeout: 504 Gateway Timeout", res.status_code == 504);
     }
@@ -275,25 +310,22 @@ int main()
     // ══════════════════════════════════════════════════════════════════════════
     section("METHOD DISPATCH (via MethodHandler)");
 
-    // GET CGI via MethodHandler
+    // GET et POST CGI via runCgiSync (handle() ne fait plus de CGI)
     {
-        HttpResponse res = handler.handle(makeGet("/cgi-bin/hello.py"), loc, server);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/hello.py"), loc, server);
         check("MH: GET CGI → 200", res.status_code == 200);
         check("MH: GET CGI body html", res.body.find("CGI fonctionne") != std::string::npos);
     }
 
-    // POST CGI via MethodHandler
     {
-        HttpResponse res = handler.handle(
-            makePost("/cgi-bin/hello.py", "message=test42"), loc, server);
+        HttpResponse res = runCgiSync(makePost("/cgi-bin/hello.py", "message=test42"), loc, server);
         check("MH: POST CGI → 200", res.status_code == 200);
         check("MH: POST CGI body recu", res.body.find("message=test42") != std::string::npos);
         check("MH: POST CGI methode", res.body.find("POST") != std::string::npos);
     }
 
-    // DELETE non autorise sur route CGI → 405
+    // DELETE non autorise → 405 (vérifié par handle() avant même d'atteindre le CGI)
     {
-        // Build a location that explicitly allows only GET and POST (no DELETE)
         LocationConfig locGetPost;
         locGetPost.setPath("/cgi-bin");
         locGetPost.setRoot("www");
@@ -309,16 +341,15 @@ int main()
         delReq.version = "HTTP/1.1";
         delReq.headers["Host"] = "localhost";
 
-        HttpResponse res = handler.handle(delReq, locGetPost, srv2);
+        HttpResponse res = handler.handle(delReq, locGetPost, srv2).httpResponse;
         check("MH: DELETE non autorise → 405", res.status_code == 405);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
     section("EVAL-STYLE END-TO-END");
 
-    // GET → JSON API
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/json_api.py?name=Evaluator"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/json_api.py?name=Evaluator"), loc, server);
         check("e2e: JSON API status 200", res.status_code == 200);
         check("e2e: JSON content-type",
               res.headers.count("Content-Type") > 0 &&
@@ -328,23 +359,20 @@ int main()
         check("e2e: name dans JSON", res.body.find("Evaluator") != std::string::npos);
     }
 
-    // POST → echo dans redirect (prove CGI chain works)
     {
-        HttpResponse res = cgi.execute(makeGet("/cgi-bin/redirect.py"), loc);
+        HttpResponse res = runCgiSync(makeGet("/cgi-bin/redirect.py"), loc, server);
         check("e2e: redirect default location",
               res.headers.count("Location") > 0 &&
               res.headers.at("Location") == "https://example.com");
     }
 
-    // POST form-data round-trip
     {
-        HttpResponse res = cgi.execute(
-            makePost("/cgi-bin/post_form.py", "login=student&project=webserv"), loc);
+        HttpResponse res = runCgiSync(
+            makePost("/cgi-bin/post_form.py", "login=student&project=webserv"), loc, server);
         check("e2e: form login=student",  res.body.find("login=student") != std::string::npos);
         check("e2e: form project=webserv", res.body.find("project=webserv") != std::string::npos);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
     std::cout << "\n──────────────────────────────────────────────────────────\n";
     std::cout << passed << " passed, " << failed << " failed\n";
     return failed > 0 ? 1 : 0;

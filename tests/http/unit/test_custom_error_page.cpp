@@ -68,7 +68,7 @@ static void test_no_root_location_skips_error_page()
     ServerConfig   server   = makeServerWithCustomErrorPage();
     LocationConfig location = makeLocationNoRoot();
 
-    HttpResponse response = handler.handle(makeReq("GET", "/cgi-bin/script"), location, server);
+    HttpResponse response = handler.handle(makeReq("GET", "/cgi-bin/script"), location, server).httpResponse;
 
     std::cout << "\n[TEST] location sans root → status=" << response.status_code
               << " body='" << response.body.substr(0, 30) << "'" << std::endl;
@@ -88,7 +88,7 @@ static void test_with_root_location_uses_error_page()
     LocationConfig location = makeLocationWithRoot();
 
     // on force une 405 en envoyant DELETE sur une location qui n'autorise que GET
-    HttpResponse response = handler.handle(makeReq("DELETE", "/"), location, server);
+    HttpResponse response = handler.handle(makeReq("DELETE", "/"), location, server).httpResponse;
 
     std::cout << "\n[TEST] location avec root → status=" << response.status_code
               << " body='" << response.body.substr(0, 30) << "'" << std::endl;
