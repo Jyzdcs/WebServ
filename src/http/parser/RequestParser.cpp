@@ -114,12 +114,23 @@ void RequestParser::parseBody(const std::string& rawRequest, HttpRequest& reques
 {
     std::string rawBody = rawRequest.substr(headerBodySeparator + 4);
 
+    // Chunked transfer encoding: decode before storing body (subject requirement)
+    std::map<std::string, std::string>::const_iterator te_it = request.headers.find("transfer-encoding");
+    if (te_it != request.headers.end()) {
+        std::string te_val = te_it->second;
+        for (std::size_t i = 0; i < te_val.size(); i++)
+            te_val[i] = std::tolower(static_cast<unsigned char>(te_val[i]));
+        if (te_val.find("chunked") != std::string::npos) {
+            request.body = decodeChunked(rawBody);
+            return;
+        }
+    }
+
     std::map<std::string, std::string>::const_iterator it = request.headers.find("content-length");
     if (it != request.headers.end())
     {
         const std::string& clValue = it->second;
 
-        // Erreur: "Content-Length: abc" ou "Content-Length: -1"  (pas un entier positif)
         for (std::size_t i = 0; i < clValue.size(); i++)
             if (clValue[i] < '0' || clValue[i] > '9')
                 throw ParseException(400, "Bad Request");
@@ -131,6 +142,33 @@ void RequestParser::parseBody(const std::string& rawRequest, HttpRequest& reques
     }
     else
         request.body = rawBody;
+}
+
+std::string RequestParser::decodeChunked(const std::string& raw)
+{
+    std::string result;
+    std::size_t pos = 0;
+
+    while (pos < raw.size()) {
+        std::size_t eol = raw.find("\r\n", pos);
+        if (eol == std::string::npos) break;
+
+        std::string size_str = raw.substr(pos, eol - pos);
+        // Strip chunk extensions (e.g. "a;ext=val")
+        std::size_t semi = size_str.find(';');
+        if (semi != std::string::npos) size_str = size_str.substr(0, semi);
+
+        std::size_t chunk_size = 0;
+        std::istringstream iss(size_str);
+        iss >> std::hex >> chunk_size;
+        if (chunk_size == 0) break;
+
+        pos = eol + 2;
+        if (pos + chunk_size > raw.size()) break;
+        result += raw.substr(pos, chunk_size);
+        pos += chunk_size + 2; // skip data + trailing \r\n
+    }
+    return result;
 }
 
 HttpRequest RequestParser::parse(const std::string& rawRequest)

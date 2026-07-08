@@ -104,7 +104,7 @@ static void test_get_method_not_allowed()
     loc.addMethod("POST");
 
     HttpResponse res = handler.handle(makeGet("/readonly/file.html"), loc, server).httpResponse;
-    check("GET method not allowed: 405", res.status_code == 405);
+    check("GET method not allowed: 403", res.status_code == 403);
 }
 
 static void test_get_redirect()

@@ -342,7 +342,7 @@ int main()
         delReq.headers["Host"] = "localhost";
 
         HttpResponse res = handler.handle(delReq, locGetPost, srv2).httpResponse;
-        check("MH: DELETE non autorise → 405", res.status_code == 405);
+        check("MH: DELETE non autorise → 403", res.status_code == 403);
     }
 
     // ══════════════════════════════════════════════════════════════════════════

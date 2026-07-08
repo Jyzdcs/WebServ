@@ -1,7 +1,4 @@
 #include "../../include/server/Socket.hpp"
-#include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,74 +17,51 @@ Socket::Socket(ServerConfig serverConf) {
 	_port = serverConf.getPort();
 	_host = serverConf.getHost();
 
-	// Fill hints with all the parameters
 	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_INET;						// IPv4
-	hints.ai_socktype = SOCK_STREAM;			// TCP
-	hints.ai_flags = AI_PASSIVE;					// pour bind() cote server
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
 
-	// Call getaddrinfo to get all the potentially usable adress that match with the config
 	if ((rv = getaddrinfo(NULL, intToString(_port).c_str(), &hints, &ai)) != 0) {
-		fprintf(stderr, "pollserver: %s\n", gai_strerror(rv));
-		exit(1);
-	}
-
-	// Find the first socket where we're able to bind
-	for(p = ai; p != NULL; p = p->ai_next) {
-		_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-		// If socket fail, try to the next
-		if (_fd < 0) {
-			continue;
-		}
-
-		// Add option to the socket which will allow us to rebind an old port
-		setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &yes,
-						sizeof(int));
-
-		// If bind isnt successful check the next socket
-		if (bind(_fd, p->ai_addr, p->ai_addrlen) < 0) {
-				close(_fd);
-				continue;
-		}
-
-		// Break cause we need to just bind 1 ip for the server
-		break;
-	}
-
-	// If p == NULL it mean that there has no available socket
-	if (p == NULL) {
-		std::cout << "Line 59 in Socket.cpp  ";
+		(void)rv;
 		throw FailedToBindPort();
 	}
 
-	freeaddrinfo(ai); // free all the addrinfo
+	for(p = ai; p != NULL; p = p->ai_next) {
+		_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+		if (_fd < 0)
+			continue;
+		setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+		if (bind(_fd, p->ai_addr, p->ai_addrlen) < 0) {
+			close(_fd);
+			continue;
+		}
+		break;
+	}
 
-	// Mettre l'etat du server en LISTEN
-	if (listen(_fd, 10) == -1) {
-		std::cout << "Line 67 in Socket.cpp ";
+	if (p == NULL) {
+		freeaddrinfo(ai);
+		throw FailedToBindPort();
+	}
+
+	freeaddrinfo(ai);
+
+	if (listen(_fd, 128) == -1) {
+		close(_fd);
 		throw ListenFalied();
 	}
 
-	// Rendre le socket _fd non bloquant
-	int flags = fcntl(_fd, F_GETFL, 0);
-	if (flags == -1) {
-		std::cout << "Line 74 in Socket.cpp ";
-		throw FcntlFailed();
-	};
-	if (fcntl(_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		std::cout << "Line 78 in Socket.cpp ";
+	if (fcntl(_fd, F_SETFL, O_NONBLOCK) == -1) {
+		close(_fd);
 		throw FcntlFailed();
 	}
 };
 
-  
 Socket::~Socket() {
 	close(_fd);
 };
 
-
-inline std::string Socket::intToString(int value)
-{
+inline std::string Socket::intToString(int value) {
 	std::ostringstream oss;
 	oss << value;
 	return oss.str();
@@ -97,33 +71,22 @@ int Socket::getFd() const {
 	return _fd;
 };
 
-
 int Socket::acceptConnection() const {
 	struct sockaddr_in client_addr;
-	socklen_t 				addrlen = sizeof(client_addr);
-	int 							newConnectionFd;
-	int 							flags;
-	
-	// Creation de la nouvelle socket client
+	socklen_t addrlen = sizeof(client_addr);
+	int newConnectionFd;
+
 	newConnectionFd = accept(_fd, (struct sockaddr *)&client_addr, &addrlen);
-	if (newConnectionFd < 0) {
-		std::cout << "Line 111 in Socket.cpp ";
+	if (newConnectionFd < 0)
 		throw AcceptNewConnectionFailed();
-	}
-	// Mettre le socket client en non bloquant
-	flags = fcntl(newConnectionFd, F_GETFL, 0);
-	if (flags == -1) {
-		std::cout << "Line 116 in Socket.cpp ";
-		throw FcntlFailed();
-	};
-	if (fcntl(newConnectionFd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		std::cout << "Line 120 in Socket.cpp ";
+
+	if (fcntl(newConnectionFd, F_SETFL, O_NONBLOCK) == -1) {
+		close(newConnectionFd);
 		throw FcntlFailed();
 	}
-	std::cout << "New connection, client fd : " << newConnectionFd << std::endl;
+
 	return newConnectionFd;
 };
-
 
 int Socket::getPort() const {
 	return _port;

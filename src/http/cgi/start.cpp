@@ -4,8 +4,8 @@
 #include "../../../include/http/utils/HttpUtils.hpp"
 #include <unistd.h>
 #include <fcntl.h>
-#include <signal.h>
-#include <time.h>
+#include <csignal>
+#include <ctime>
 
 #define CGI_TIMEOUT_SEC 5
 
