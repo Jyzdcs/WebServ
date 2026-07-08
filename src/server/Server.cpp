@@ -104,7 +104,6 @@ void Server::handleClientWrite(int fd) {
 };
 
 void Server::handleCgiRead(int fd) {
-	CgiContext ctx = _cgi_map[fd];
 	char buf[4096];
 
 	while (true) {
@@ -112,6 +111,7 @@ void Server::handleCgiRead(int fd) {
 		if (n > 0) {
 			_cgi_map[fd].output += std::string(buf, n);
 		} else if (n == 0) {
+			CgiContext ctx = _cgi_map[fd];
 			_poll_manager.removeFd(fd);
 			_cgi_map.erase(fd);
 			if (!_clients.count(ctx.clientFd))
@@ -122,8 +122,7 @@ void Server::handleCgiRead(int fd) {
 			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
 			return;
 		} else {
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				return;
+			CgiContext ctx = _cgi_map[fd];
 			_poll_manager.removeFd(fd);
 			_cgi_map.erase(fd);
 			if (!_clients.count(ctx.clientFd))
@@ -137,6 +136,20 @@ void Server::handleCgiRead(int fd) {
 			return;
 		}
 	}
+};
+
+void Server::handleCgiHup(int fd) {
+	CgiContext ctx = _cgi_map[fd];
+	_poll_manager.removeFd(fd);
+	_cgi_map.erase(fd);
+	if (!_clients.count(ctx.clientFd))
+		return;
+	bool timedOut = (time(NULL) >= ctx.deadline);
+	if (timedOut) kill(ctx.pid, SIGKILL);
+	std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+	_clients[ctx.clientFd]->setWriteBuffer(res);
+	_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
+	_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
 };
 
 void Server::closeClient(int fd) {
@@ -271,8 +284,10 @@ void Server::run() {
 			*/
 
 			if (_cgi_map.count(fd)) {
-				if (_poll_manager.isReadable(fd) || _poll_manager.hasError(fd))
+				if (_poll_manager.isReadable(fd))
 					handleCgiRead(fd);
+				else if (_poll_manager.hasError(fd))
+					handleCgiHup(fd);
 			}
 			else if (_poll_manager.hasError(fd)) {
 				handleClientRead(fd);

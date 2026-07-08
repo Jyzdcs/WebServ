@@ -86,6 +86,7 @@ class Server
 		**		- finishCgi() et setWriteBuffer son contenu puis ajouter POLLOUT
 		*/
 		void handleCgiRead(int fd);
+		void handleCgiHup(int fd);
 
 		/*
 		** Goal: Fermeture propre d'un client.
