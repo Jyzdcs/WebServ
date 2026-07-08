@@ -4,6 +4,10 @@
 #include <unistd.h>
 #include <signal.h>
 
+volatile sig_atomic_t Server::_stop = 0;
+
+void Server::sigHandler(int) { Server::_stop = 1; }
+
 Server::Server()
 	: _listening_sockets(), _clients(), _configs_by_port(), _cgi_map(), _poll_manager(), _running(false) {
 };
@@ -243,7 +247,7 @@ void Server::addServerConfig(const ServerConfig& config) {
 void Server::run() {
 	_running = true;
 
-	while (_running) {
+	while (_running && !Server::_stop) {
 		// std::cout << _running << std::endl;
 		/*
 		** TIMEOUT == 0 : pas d'attente du tout (test l'etat des fd et return direct = non bloquant)

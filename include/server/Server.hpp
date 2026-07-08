@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <map>
+#include <signal.h>
 #include "Socket.hpp"
 #include "Client.hpp"
 #include "PollManager.hpp"
@@ -47,6 +48,7 @@ class Server
 		std::map<int, CgiContext> _cgi_map; // fd -> cgiContext
 		PollManager _poll_manager;
 		bool _running;
+		static volatile sig_atomic_t _stop;
 
 		/*
 		** Goal: Un socket d'écoute a un événement POLLIN → accept().
@@ -161,6 +163,8 @@ class Server
 		** La boucle actuelle finit son tour puis sort de run().
 		*/
 		void stop();
+
+		static void sigHandler(int sig);
 
 		class PollFailed : public std::exception {
 			const char *what() const throw();
