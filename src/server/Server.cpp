@@ -275,7 +275,7 @@ void Server::run() {
 	_running = true;
 
 	while (_running && !Server::_stop) {
-		const int timeout = 0;
+		const int timeout = 100;
 		int poll_count = _poll_manager.pollEngine(timeout);
 
 		if (poll_count == -1) {
