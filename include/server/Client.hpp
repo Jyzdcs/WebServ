@@ -142,6 +142,7 @@ class Client
 		** (clear) ou avancé (pour gérer le pipelining keep-alive —
 		** optionnel selon votre ambition).
 		*/
+		void clearReadBuffer() { _read_buffer.clear(); }
 		std::string& getReadBuffer();
 		const std::string& getReadBuffer() const;
 

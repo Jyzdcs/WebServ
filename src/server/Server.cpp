@@ -84,6 +84,7 @@ void Server::handleClientWrite(int fd) {
 			if (_clients[fd]->shouldClose() && _clients[fd]->getState() == DONE) {
 				closeClient(_clients[fd]->getFd());
 			} else if (_clients[fd]->getState() == DONE) {
+				_clients[fd]->clearReadBuffer();
 				_clients[fd]->setState(READING_REQUEST);
 				_poll_manager.updateEvents(fd, POLLIN);
 			} else if (_clients[fd]->getState() == CLOSING) {

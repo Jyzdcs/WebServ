@@ -60,9 +60,14 @@ bool Client::isRequestComplete() const {
 
 	std::string::size_type headers_size = header_end + 4;
 	std::string headers = _read_buffer.substr(0, headers_size);
-	
-	const std::string cl_header = "Content-Length:";
-	std::string::size_type pos = headers.find(cl_header);
+
+	// Case-insensitive search for Content-Length (RFC 7230: header names are case-insensitive)
+	std::string headers_lower = headers;
+	for (std::size_t i = 0; i < headers_lower.size(); ++i)
+		headers_lower[i] = std::tolower(headers_lower[i]);
+
+	const std::string cl_header = "content-length:";
+	std::string::size_type pos = headers_lower.find(cl_header);
 
 	if (pos == std::string::npos)
 		return true;
