@@ -2,7 +2,7 @@ NAME    = webserv
 CXX     = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 
-SRCS    = $(shell find src -name "*.cpp")
+SRCS    = $(shell find src -name "*.cpp" ! -name "ConfigMock.cpp")
 OBJS    = $(SRCS:src/%.cpp=obj/%.o) obj/main.o
 INCS    = -I include
 
