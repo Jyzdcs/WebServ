@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <map>
-#include <signal.h>
+#include <csignal>
 #include "Socket.hpp"
 #include "Client.hpp"
 #include "PollManager.hpp"

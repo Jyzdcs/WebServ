@@ -1,6 +1,6 @@
 #include "include/server/Server.hpp"
 #include <iostream>
-#include <signal.h>
+#include <csignal>
 #include "include/config/ConfigValidator.hpp"
 
 int main(int argc, char **argv) {

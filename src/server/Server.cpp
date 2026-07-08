@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <ctime>
 #include <unistd.h>
-#include <signal.h>
+#include <csignal>
 #include <sys/wait.h>
 
 volatile sig_atomic_t Server::_stop = 0;
