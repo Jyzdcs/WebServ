@@ -1,6 +1,8 @@
 #include "../../include/server/Server.hpp"
+#include "../../include/server/ServerLog.hpp"
 #include <algorithm>
 #include <ctime>
+#include <cstdlib>
 #include <unistd.h>
 #include <csignal>
 #include <sys/wait.h>
@@ -34,6 +36,7 @@ void Server::handleNewConnection(Socket *socket) {
 		Client* newClient = new Client(newFd, socket->getPort());
 		_clients[newFd] = newClient;
 		_poll_manager.addFd(newFd, POLLIN);
+		ServerLog::clientConnected(newFd, socket->getPort());
 	} catch (std::exception& err) {
 		(void)err;
 	}
@@ -49,11 +52,14 @@ void Server::handleClientRead(int fd) {
 		int n_read = client->receiveData();
 		
 		if (n_read == 0 && client->getState() == CLOSING) {
-			closeClient(client->getFd());
+			closeClient(client->getFd(), "disconnected");
 		} else if (client->getState() == PROCESSING) {
-			ProcessResult result = processHttp(client->getReadBuffer(), getConfigForClient(client));
+			const std::string& rawRequest = client->getReadBuffer();
+			const ServerConfig& config = getConfigForClient(client);
+			ProcessResult result = processHttp(rawRequest, config);
 
 			if(result.state == ProcessResult::COMPLETE) {
+				ServerLog::httpResponse(rawRequest, result.rawResponse);
 				client->setWriteBuffer(result.rawResponse);
 				client->setShouldClose(result.shouldClose);
 				_poll_manager.updateEvents(fd, POLLIN | POLLOUT);
@@ -64,16 +70,17 @@ void Server::handleClientRead(int fd) {
 				ctx.clientFd = fd;
 				ctx.shouldClose = result.shouldClose;
 				ctx.output = "";
-				ctx.config = getConfigForClient(client);
+				ctx.config = config;
+				ServerLog::cgiStarted(rawRequest, result.pid);
 				_cgi_map[result.stdoutFd] = ctx;
 				_poll_manager.addFd(result.stdoutFd, POLLIN);
 			}
 		} else if (client->getState() == CLOSING) {
-			closeClient(client->getFd());
+			closeClient(client->getFd(), "disconnected");
 		}
 	} catch (std::exception& err) {
 		(void)err;
-		closeClient(fd);
+		closeClient(fd, "error");
 	}
 };
 
@@ -82,18 +89,18 @@ void Server::handleClientWrite(int fd) {
 		if (_clients[fd]->getState() == SENDING_RESPONSE) {
 			_clients[fd]->sendData();
 			if (_clients[fd]->shouldClose() && _clients[fd]->getState() == DONE) {
-				closeClient(_clients[fd]->getFd());
+				closeClient(_clients[fd]->getFd(), "connection closed");
 			} else if (_clients[fd]->getState() == DONE) {
 				_clients[fd]->clearReadBuffer();
 				_clients[fd]->setState(READING_REQUEST);
 				_poll_manager.updateEvents(fd, POLLIN);
 			} else if (_clients[fd]->getState() == CLOSING) {
-				closeClient(_clients[fd]->getFd());
+				closeClient(_clients[fd]->getFd(), "disconnected");
 			}
 		}
 	} catch (std::exception& err) {
 		(void)err;
-		closeClient(fd);
+		closeClient(fd, "error");
 	}
 };
 
@@ -113,6 +120,7 @@ void Server::handleCgiRead(int fd) {
 				return;
 			}
 			std::string res = finishCgi(ctx.output, ctx.pid, false, ctx.shouldClose, ctx.config);
+			ServerLog::cgiFinished(res, false);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
 			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
@@ -130,6 +138,7 @@ void Server::handleCgiRead(int fd) {
 			bool timedOut = (time(NULL) >= ctx.deadline);
 			if (timedOut) kill(ctx.pid, SIGKILL);
 			std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, ctx.config);
+			ServerLog::cgiFinished(res, timedOut);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
 			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
@@ -151,12 +160,14 @@ void Server::handleCgiHup(int fd) {
 	bool timedOut = (time(NULL) >= ctx.deadline);
 	if (timedOut) kill(ctx.pid, SIGKILL);
 	std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, ctx.config);
+	ServerLog::cgiFinished(res, timedOut);
 	_clients[ctx.clientFd]->setWriteBuffer(res);
 	_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
 	_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
 };
 
-void Server::closeClient(int fd) {
+void Server::closeClient(int fd, const char* reason) {
+	ServerLog::clientEvent(fd, reason);
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 	if (it != _clients.end()) {
 		delete it->second;
@@ -181,7 +192,7 @@ void Server::checkTimeouts() {
 
 		if (!hasCgi && now - c->getLastActivity() > TIMEOUT) {
 			++it;
-			closeClient(fd);
+			closeClient(fd, "disconnected (inactivity)");
 		} else {
 			++it;
 		}
@@ -203,6 +214,7 @@ void Server::checkCgiTimeouts() {
 				continue;
 			}
 			std::string res = finishCgi(ctx.output, ctx.pid, true, ctx.shouldClose, ctx.config);
+			ServerLog::cgiFinished(res, true);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(true);
 			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
@@ -242,8 +254,11 @@ const ServerConfig& Server::getConfigForClient(const Client* client) const {
 	}
 
 	for (std::size_t i = 0; i < configs.size(); ++i) {
-		if (configs[i].getServerName() == host_value)
+		if (configs[i].getServerName() == host_value) {
+			if (!host_value.empty())
+				ServerLog::virtualHost(host_value, configs[i].getServerName());
 			return configs[i];
+		}
 	}
 	return configs[0];
 }
@@ -269,6 +284,7 @@ void Server::addServerConfig(const ServerConfig& config) {
 	Socket *s = new Socket(config);
 	_listening_sockets.push_back(s);
 	_poll_manager.addFd(s->getFd(), POLLIN);
+	ServerLog::listening(config.getHost(), port, config.getServerName());
 };
 
 void Server::run() {
@@ -313,6 +329,8 @@ void Server::run() {
 		checkTimeouts();
 		checkCgiTimeouts();
 	}
+	if (Server::_stop)
+		ServerLog::shuttingDown();
 };
 
 void Server::stop() {

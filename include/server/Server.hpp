@@ -97,7 +97,7 @@ class Server
 		** delete _clients[fd], _clients.erase(fd).
 		** Centraliser ici évite les fuites de fd dispersées dans le code.
 		*/
-		void closeClient(int fd);
+		void closeClient(int fd, const char* reason = 0);
 
 		/*
 		** Goal: Parcourt _clients et ferme ceux dont
