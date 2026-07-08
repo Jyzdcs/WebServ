@@ -194,7 +194,7 @@ void Server::checkCgiTimeouts() {
 		if (now >= ctx.deadline) {
 			kill(ctx.pid, SIGKILL);
 			_poll_manager.removeFd(pipeFd);
-			it = _cgi_map.erase(it);
+			_cgi_map.erase(it++);
 			if (!_clients.count(ctx.clientFd))
 				continue;
 			std::string res = finishCgi(ctx.output, ctx.pid, true, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
