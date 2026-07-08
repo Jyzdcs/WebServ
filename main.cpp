@@ -45,11 +45,23 @@ int main(int argc, char **argv) {
 	}
 	try {
 		Server server;
+		// int i = 0;
 
 		server.addServerConfig(serversConf[0]);
 		std::cout << "Listening on port " << serversConf[0].getPort()
 		<< " — waiting for one client..." << std::endl;
 		server.run();
+
+		// std::cout << "Listening on port " << serversConf[1].getPort()
+		// << " — waiting for one client..." << std::endl;
+		// servers[1].addServerConfig(serversConf[1]);
+		// servers[1].run();
+		// while (i < serversConf.size()) {
+		// 	server.addServerConfig(serversConf[0]);
+		// 	std::cout << "Listening on port " << serversConf[0].getPort()
+		// 	<< " — waiting for one client..." << std::endl;
+		// 	server.run();
+		// }
 	} catch (std::exception &e) {
 		std::cerr << "Exception: " << e.what() << std::endl;
 		return 1;

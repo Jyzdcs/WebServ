@@ -13,11 +13,11 @@ PollManager::~PollManager() {
 // ---------------------- PRIVATE ----------------------
 
 int PollManager::findIndex(int fd) const {
-	std::size_t i = 0;
-	while (_fds[i].fd != fd) {
-		i++;
-	};
-	return i;
+	for (std::size_t i = 0; i < _fds.size(); i++) {
+		if (_fds[i].fd == fd)
+			return (int)i;
+	}
+	return -1;
 };
 
 // ---------------------- PUBLIC ----------------------
@@ -35,8 +35,8 @@ void PollManager::addFd(int fd, short events) {
 };
 
 void PollManager::removeFd(int fd) {
-	size_t idx = findIndex(fd);
-	if (idx < _fds.size()) {
+	int idx = findIndex(fd);
+	if (idx >= 0 && (std::size_t)idx < _fds.size()) {
 		_fds.erase(_fds.begin() + idx);
 	}
 	close(fd);
@@ -44,7 +44,8 @@ void PollManager::removeFd(int fd) {
 
 void PollManager::updateEvents(int fd, short events) {
 	int idx = findIndex(fd);
-	_fds[idx].events = events;
+	if (idx >= 0)
+		_fds[idx].events = events;
 };
 
 int PollManager::pollEngine(int timeout_ms) {
@@ -55,7 +56,8 @@ int PollManager::pollEngine(int timeout_ms) {
 
 bool PollManager::isReadable(int fd) const {
 	int idx = findIndex(fd);
-
+	if (idx < 0)
+		return false;
 	if (_fds[idx].revents & POLLIN) {
 		return true;
 	}
@@ -64,7 +66,8 @@ bool PollManager::isReadable(int fd) const {
 
 bool PollManager::isWritable(int fd) const {
 	int idx = findIndex(fd);
-
+	if (idx < 0)
+		return false;
 	if (_fds[idx].revents & POLLOUT) {
 		return true;
 	}
@@ -73,7 +76,8 @@ bool PollManager::isWritable(int fd) const {
 
 bool PollManager::hasError(int fd) const {
 	int idx = findIndex(fd);
-	
+	if (idx < 0)
+		return false;
 	if (_fds[idx].revents & (POLLHUP | POLLNVAL | POLLERR)) {
 		return true;
 	}

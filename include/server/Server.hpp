@@ -10,6 +10,16 @@
 #include "../config/ServerConfig.hpp"
 #include "../config/ConfigParser.hpp"
 
+struct CgiContext
+{
+	int						clientFd;     // fd du pipe → à ajouter dans poll(POLLIN)
+	bool					shouldClose;
+	pid_t					pid;          // pid du script → pour kill() si timeout
+	time_t				deadline;     // time(NULL) + CGI_TIMEOUT — calculé par le HTTP layer
+	std::string		output;
+};
+
+
 /*
 ** Server
 ** ------
@@ -34,6 +44,7 @@ class Server
 		std::vector<Socket*> _listening_sockets;
 		std::map<int, Client*> _clients;   // fd -> Client*
 		std::map<int, ServerConfig> _configs_by_port; // port -> config (multi-port)
+		std::map<int, CgiContext> _cgi_map; // fd -> cgiContext
 		PollManager _poll_manager;
 		bool _running;
 
@@ -67,6 +78,17 @@ class Server
 		void handleClientWrite(int fd);
 
 		/*
+		** Goal: Le cgi d'un client est pret a etre lu
+		** Appelle read()
+		** Si read() :
+		**		- > 0 dans ce cas la add le contenu lu a la variable ctx.output
+		** Sinon  :
+		**		- finishCgi() et setWriteBuffer son contenu puis ajouter POLLOUT
+		*/
+		void handleCgiRead(int fd);
+		void handleCgiHup(int fd);
+
+		/*
 		** Goal: Fermeture propre d'un client.
 		** Fait : close(fd), poll_manager.removeFd(fd),
 		** delete _clients[fd], _clients.erase(fd).
@@ -81,6 +103,7 @@ class Server
 		** Appelé une fois par tour de boucle, après le traitement des fds.
 		*/
 		void checkTimeouts();
+		void checkCgiTimeouts();
 
 		/*
 		** Goal: Retrouve le ServerConfig correspondant au port sur lequel
