@@ -120,6 +120,10 @@ std::string& Client::getReadBuffer() {
 	return _read_buffer;
 };
 
+const std::string& Client::getReadBuffer() const {
+	return _read_buffer;
+};
+
 void Client::setWriteBuffer(const std::string& response) {
 	_write_buffer = response;
 	_write_offset = 0;

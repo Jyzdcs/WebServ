@@ -12,7 +12,10 @@ Server::Server()
 	: _listening_sockets(), _clients(), _configs_by_port(), _cgi_map(), _poll_manager(), _running(false) {
 };
 
-Server::~Server() {};
+Server::~Server() {
+	for (std::vector<Socket*>::iterator it = _listening_sockets.begin(); it != _listening_sockets.end(); ++it)
+		delete *it;
+};
 
 void Server::handleNewConnection(Socket *socket) {
 	try {
@@ -50,6 +53,7 @@ void Server::handleClientRead(int fd) {
 				ctx.clientFd = fd;
 				ctx.shouldClose = result.shouldClose;
 				ctx.output = "";
+				ctx.config = getConfigForClient(client);
 				_cgi_map[result.stdoutFd] = ctx;
 				_poll_manager.addFd(result.stdoutFd, POLLIN);
 			}
@@ -93,7 +97,7 @@ void Server::handleCgiRead(int fd) {
 			_cgi_map.erase(fd);
 			if (!_clients.count(ctx.clientFd))
 				return;
-			std::string res = finishCgi(ctx.output, ctx.pid, false, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+			std::string res = finishCgi(ctx.output, ctx.pid, false, ctx.shouldClose, ctx.config);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
 			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
@@ -106,7 +110,7 @@ void Server::handleCgiRead(int fd) {
 				return;
 			bool timedOut = (time(NULL) >= ctx.deadline);
 			if (timedOut) kill(ctx.pid, SIGKILL);
-			std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+			std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, ctx.config);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
 			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
@@ -123,7 +127,7 @@ void Server::handleCgiHup(int fd) {
 		return;
 	bool timedOut = (time(NULL) >= ctx.deadline);
 	if (timedOut) kill(ctx.pid, SIGKILL);
-	std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+	std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, ctx.config);
 	_clients[ctx.clientFd]->setWriteBuffer(res);
 	_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
 	_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
@@ -173,7 +177,7 @@ void Server::checkCgiTimeouts() {
 			_cgi_map.erase(it++);
 			if (!_clients.count(ctx.clientFd))
 				continue;
-			std::string res = finishCgi(ctx.output, ctx.pid, true, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+			std::string res = finishCgi(ctx.output, ctx.pid, true, ctx.shouldClose, ctx.config);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(true);
 			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
@@ -186,12 +190,37 @@ void Server::checkCgiTimeouts() {
 const ServerConfig& Server::getConfigForClient(const Client* client) const {
 	int port = client->getServerPort();
 
-	std::map<int, ServerConfig>::const_iterator it = _configs_by_port.find(port);
-
-	if (it == _configs_by_port.end()) {
+	std::map<int, std::vector<ServerConfig> >::const_iterator it = _configs_by_port.find(port);
+	if (it == _configs_by_port.end())
 		throw std::runtime_error("No ServerConfig for port");
+
+	const std::vector<ServerConfig>& configs = it->second;
+	if (configs.size() == 1)
+		return configs[0];
+
+	const std::string& buf = client->getReadBuffer();
+	std::string host_value;
+	std::string::size_type pos = buf.find("\r\nHost:");
+	if (pos == std::string::npos)
+		pos = buf.find("\r\nhost:");
+	if (pos != std::string::npos) {
+		pos += 7;
+		while (pos < buf.size() && (buf[pos] == ' ' || buf[pos] == '\t'))
+			pos++;
+		std::string::size_type end = buf.find("\r\n", pos);
+		if (end != std::string::npos) {
+			host_value = buf.substr(pos, end - pos);
+			std::string::size_type colon = host_value.find(':');
+			if (colon != std::string::npos)
+				host_value = host_value.substr(0, colon);
+		}
 	}
-	return it->second;
+
+	for (std::size_t i = 0; i < configs.size(); ++i) {
+		if (configs[i].getServerName() == host_value)
+			return configs[i];
+	}
+	return configs[0];
 }
 
 Socket *Server::findListeningSocketByFd(int fd) {
@@ -205,11 +234,15 @@ Socket *Server::findListeningSocketByFd(int fd) {
 }
 
 void Server::addServerConfig(const ServerConfig& config) {
-	_configs_by_port[config.getPort()] = config;
-	
+	int port = config.getPort();
+	_configs_by_port[port].push_back(config);
+
+	for (std::size_t i = 0; i < _listening_sockets.size(); ++i) {
+		if (_listening_sockets[i]->getPort() == port)
+			return;
+	}
 	Socket *s = new Socket(config);
 	_listening_sockets.push_back(s);
-
 	_poll_manager.addFd(s->getFd(), POLLIN);
 };
 
@@ -220,8 +253,10 @@ void Server::run() {
 		const int timeout = 0;
 		int poll_count = _poll_manager.pollEngine(timeout);
 
-		if (poll_count == -1)
+		if (poll_count == -1) {
+			if (Server::_stop) break;
 			throw PollFailed();
+		}
 
 		std::vector<struct pollfd> fds = _poll_manager.getFds();
 		int fdsSize = (int)fds.size();

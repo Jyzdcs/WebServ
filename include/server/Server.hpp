@@ -13,11 +13,12 @@
 
 struct CgiContext
 {
-	int						clientFd;     // fd du pipe → à ajouter dans poll(POLLIN)
+	int						clientFd;
 	bool					shouldClose;
-	pid_t					pid;          // pid du script → pour kill() si timeout
-	time_t				deadline;     // time(NULL) + CGI_TIMEOUT — calculé par le HTTP layer
+	pid_t					pid;
+	time_t				deadline;
 	std::string		output;
+	ServerConfig	config;
 };
 
 
@@ -44,7 +45,7 @@ class Server
 	private:
 		std::vector<Socket*> _listening_sockets;
 		std::map<int, Client*> _clients;   // fd -> Client*
-		std::map<int, ServerConfig> _configs_by_port; // port -> config (multi-port)
+		std::map<int, std::vector<ServerConfig> > _configs_by_port;
 		std::map<int, CgiContext> _cgi_map; // fd -> cgiContext
 		PollManager _poll_manager;
 		bool _running;

@@ -143,6 +143,7 @@ class Client
 		** optionnel selon votre ambition).
 		*/
 		std::string& getReadBuffer();
+		const std::string& getReadBuffer() const;
 
 		/*
 		** Goal: Définit la réponse complète à envoyer.
