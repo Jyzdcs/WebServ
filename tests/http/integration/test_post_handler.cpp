@@ -58,7 +58,7 @@ int main()
         LocationConfig loc = makeLoc("/tmp");
         server.addLocation(loc);
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("POST", "/uploads/hello.txt", "hello world"), loc, server);
+        HttpResponse res = handler.handle(makeReq("POST", "/uploads/hello.txt", "hello world"), loc, server).httpResponse;
         check("POST upload: 201", res.status_code == 201);
         check("POST upload: Location header", res.headers.count("Location") > 0);
         check("POST upload: fichier cree sur disque", readFile("/tmp/hello.txt") == "hello world");
@@ -68,7 +68,7 @@ int main()
     {
         LocationConfig loc = makeLoc("");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("POST", "/uploads/test.txt", "data"), loc, server);
+        HttpResponse res = handler.handle(makeReq("POST", "/uploads/test.txt", "data"), loc, server).httpResponse;
         check("POST sans upload_store: 500", res.status_code == 500);
     }
 
@@ -76,7 +76,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/tmp");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("POST", "/uploads/empty.txt", ""), loc, server);
+        HttpResponse res = handler.handle(makeReq("POST", "/uploads/empty.txt", ""), loc, server).httpResponse;
         check("POST body vide: 201", res.status_code == 201);
     }
 
@@ -84,7 +84,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/tmp");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("POST", "/uploads/", "data"), loc, server);
+        HttpResponse res = handler.handle(makeReq("POST", "/uploads/", "data"), loc, server).httpResponse;
         check("POST URI sans filename: 400", res.status_code == 400);
     }
 
@@ -92,7 +92,7 @@ int main()
     {
         LocationConfig loc = makeLoc("/tmp");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("POST", "/uploads/../etc/passwd", "data"), loc, server);
+        HttpResponse res = handler.handle(makeReq("POST", "/uploads/../etc/passwd", "data"), loc, server).httpResponse;
         check("POST path traversal: 400", res.status_code == 400);
     }
 
@@ -104,7 +104,7 @@ int main()
         loc.setUploadPath("/tmp");
         loc.addMethod("GET");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("POST", "/uploads/file.txt", "data"), loc, server);
+        HttpResponse res = handler.handle(makeReq("POST", "/uploads/file.txt", "data"), loc, server).httpResponse;
         check("POST methode non autorisee: 405", res.status_code == 405);
     }
 
@@ -116,7 +116,7 @@ int main()
 
         LocationConfig loc = makeLoc("/tmp");
         MethodHandler handler;
-        handler.handle(makeReq("POST", "/uploads/existing.txt", "nouveau contenu"), loc, server);
+        (void)handler.handle(makeReq("POST", "/uploads/existing.txt", "nouveau contenu"), loc, server).httpResponse;
         check("POST ecrase fichier existant: contenu mis a jour",
               readFile("/tmp/existing.txt") == "nouveau contenu");
     }
@@ -128,7 +128,7 @@ int main()
 
         LocationConfig loc = makeLoc("/tmp");
         MethodHandler handler;
-        HttpResponse res = handler.handle(makeReq("POST", "/uploads/img.png", binary), loc, server);
+        HttpResponse res = handler.handle(makeReq("POST", "/uploads/img.png", binary), loc, server).httpResponse;
         check("POST contenu binaire: 201", res.status_code == 201);
         check("POST contenu binaire: fichier correct", readFile("/tmp/img.png") == binary);
     }
