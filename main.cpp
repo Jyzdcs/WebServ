@@ -49,9 +49,11 @@ int main(int argc, char **argv) {
 		signal(SIGINT,  Server::sigHandler);
 		signal(SIGTERM, Server::sigHandler);
 
-		server.addServerConfig(serversConf[0]);
-		std::cout << "Listening on port " << serversConf[0].getPort()
-		<< " — waiting for one client..." << std::endl;
+		for (size_t i = 0; i < serversConf.size(); i++) {
+			server.addServerConfig(serversConf[i]);
+			std::cout << "Listening on port " << serversConf[i].getPort()
+				<< " — waiting for one client..." << std::endl;
+		}
 		server.run();
 	} catch (std::exception &e) {
 		std::cerr << "Exception: " << e.what() << std::endl;
