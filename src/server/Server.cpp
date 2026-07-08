@@ -270,9 +270,6 @@ void Server::run() {
 			** soit un client est pret a etre write (POLLOUT)
 			*/
 
-			if (_poll_manager.hasError(fd) or _poll_manager.isReadable(fd) or _poll_manager.isWritable(fd)) {
-			// fd active
-		}
 			if (_cgi_map.count(fd)) {
 				if (_poll_manager.isReadable(fd) || _poll_manager.hasError(fd))
 					handleCgiRead(fd);
