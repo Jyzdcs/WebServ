@@ -3,6 +3,7 @@
 #include <ctime>
 #include <unistd.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 volatile sig_atomic_t Server::_stop = 0;
 
@@ -13,6 +14,16 @@ Server::Server()
 };
 
 Server::~Server() {
+	for (std::map<int, CgiContext>::iterator it = _cgi_map.begin(); it != _cgi_map.end(); ++it) {
+		kill(it->second.pid, SIGKILL);
+		waitpid(it->second.pid, NULL, 0);
+		close(it->first);
+	}
+	_cgi_map.clear();
+
+	while (!_clients.empty())
+		closeClient(_clients.begin()->first);
+
 	for (std::vector<Socket*>::iterator it = _listening_sockets.begin(); it != _listening_sockets.end(); ++it)
 		delete *it;
 };
@@ -81,6 +92,7 @@ void Server::handleClientWrite(int fd) {
 		}
 	} catch (std::exception& err) {
 		(void)err;
+		closeClient(fd);
 	}
 };
 
@@ -95,8 +107,10 @@ void Server::handleCgiRead(int fd) {
 			CgiContext ctx = _cgi_map[fd];
 			_poll_manager.removeFd(fd);
 			_cgi_map.erase(fd);
-			if (!_clients.count(ctx.clientFd))
+			if (!_clients.count(ctx.clientFd)) {
+				waitpid(ctx.pid, NULL, 0);
 				return;
+			}
 			std::string res = finishCgi(ctx.output, ctx.pid, false, ctx.shouldClose, ctx.config);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
@@ -106,8 +120,12 @@ void Server::handleCgiRead(int fd) {
 			CgiContext ctx = _cgi_map[fd];
 			_poll_manager.removeFd(fd);
 			_cgi_map.erase(fd);
-			if (!_clients.count(ctx.clientFd))
+			if (!_clients.count(ctx.clientFd)) {
+				bool timedOut = (time(NULL) >= ctx.deadline);
+				if (timedOut) kill(ctx.pid, SIGKILL);
+				waitpid(ctx.pid, NULL, 0);
 				return;
+			}
 			bool timedOut = (time(NULL) >= ctx.deadline);
 			if (timedOut) kill(ctx.pid, SIGKILL);
 			std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, ctx.config);
@@ -123,8 +141,12 @@ void Server::handleCgiHup(int fd) {
 	CgiContext ctx = _cgi_map[fd];
 	_poll_manager.removeFd(fd);
 	_cgi_map.erase(fd);
-	if (!_clients.count(ctx.clientFd))
+	if (!_clients.count(ctx.clientFd)) {
+		bool timedOut = (time(NULL) >= ctx.deadline);
+		if (timedOut) kill(ctx.pid, SIGKILL);
+		waitpid(ctx.pid, NULL, 0);
 		return;
+	}
 	bool timedOut = (time(NULL) >= ctx.deadline);
 	if (timedOut) kill(ctx.pid, SIGKILL);
 	std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, ctx.config);
@@ -175,8 +197,10 @@ void Server::checkCgiTimeouts() {
 			kill(ctx.pid, SIGKILL);
 			_poll_manager.removeFd(pipeFd);
 			_cgi_map.erase(it++);
-			if (!_clients.count(ctx.clientFd))
+			if (!_clients.count(ctx.clientFd)) {
+				waitpid(ctx.pid, NULL, 0);
 				continue;
+			}
 			std::string res = finishCgi(ctx.output, ctx.pid, true, ctx.shouldClose, ctx.config);
 			_clients[ctx.clientFd]->setWriteBuffer(res);
 			_clients[ctx.clientFd]->setShouldClose(true);

@@ -1,6 +1,6 @@
 # WebServ
 
-*This project has been created as part of the 42 curriculum by abbouras, kclaudan, arpenel*
+_This project has been created as part of the 42 curriculum by abbouras, kclaudan, arpenel_
 
 ---
 
@@ -9,6 +9,7 @@
 WebServ is a fully compliant HTTP/1.1 web server written in C++98, built from scratch as part of the 42 curriculum. It handles static file serving, file uploads, HTTP redirections, directory listing, and CGI script execution — all over a single non-blocking `poll()` event loop.
 
 Key properties:
+
 - Single `poll()` call monitoring all file descriptors (clients, listening sockets, CGI pipes) simultaneously for read and write
 - Fully non-blocking I/O — no read or write without going through `poll()` first
 - Virtual hosting — multiple server blocks on the same port, routed by `Host` header
@@ -117,10 +118,8 @@ siege -b http://127.0.0.1:1818/ -t 30s -c 25
 ### AI usage
 
 AI assistants (Claude via Cursor) were used throughout this project for:
+
 - Code review and HTTP compliance checking against NGINX behavior
 - Architectural design of the async CGI integration (`processHttp` / `finishCgi` interface)
 - Debugging session issues (CGI pipe handling, virtual hosting routing, C++98 compatibility)
 - Writing the end-to-end test suite (`tests/e2e/run_e2e.sh`)
-- Identifying and fixing bugs (memory leaks, `errno` violations, `F_GETFL` macOS constraint)
-
-All code was reviewed and validated by the team.

@@ -39,16 +39,22 @@ Socket::Socket(ServerConfig serverConf) {
 		break;
 	}
 
-	if (p == NULL)
+	if (p == NULL) {
+		freeaddrinfo(ai);
 		throw FailedToBindPort();
+	}
 
 	freeaddrinfo(ai);
 
-	if (listen(_fd, 128) == -1)
+	if (listen(_fd, 128) == -1) {
+		close(_fd);
 		throw ListenFalied();
+	}
 
-	if (fcntl(_fd, F_SETFL, O_NONBLOCK) == -1)
+	if (fcntl(_fd, F_SETFL, O_NONBLOCK) == -1) {
+		close(_fd);
 		throw FcntlFailed();
+	}
 };
 
 Socket::~Socket() {
@@ -74,8 +80,10 @@ int Socket::acceptConnection() const {
 	if (newConnectionFd < 0)
 		throw AcceptNewConnectionFailed();
 
-	if (fcntl(newConnectionFd, F_SETFL, O_NONBLOCK) == -1)
+	if (fcntl(newConnectionFd, F_SETFL, O_NONBLOCK) == -1) {
+		close(newConnectionFd);
 		throw FcntlFailed();
+	}
 
 	return newConnectionFd;
 };
