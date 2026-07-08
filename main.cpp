@@ -22,6 +22,7 @@ int main(int argc, char **argv) {
 	}
 
 	const std::vector<ServerConfig>& serversConf = config.getServers();
+	std::cout << "Config OK: " << serversConf.size() << " server(s)" << std::endl;
 
 	try {
 		Server server;
@@ -29,10 +30,13 @@ int main(int argc, char **argv) {
 		signal(SIGTERM, Server::sigHandler);
 		for (size_t i = 0; i < serversConf.size(); i++)
 			server.addServerConfig(serversConf[i]);
+		std::cout << "Server ready." << std::endl;
 		server.run();
 	} catch (std::exception &e) {
 		std::cerr << "webserv: " << e.what() << std::endl;
 		return 1;
 	}
+
+	std::cout << "Server stopped." << std::endl;
 	return 0;
 }

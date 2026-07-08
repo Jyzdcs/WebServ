@@ -403,7 +403,7 @@
       <span class="topbar-title" id="panel-title">GET — Lire un fichier</span>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="spinner" id="spinner"></div>
-        <span class="badge" id="host-badge">localhost:8080</span>
+        <span class="badge" id="host-badge"></span>
       </div>
     </div>
 
@@ -514,6 +514,8 @@
 </div>
 
 <script>
+  document.getElementById('host-badge').textContent = window.location.host;
+
   var titles = {
     'get': 'GET — Lire un fichier',
     'post-text': 'POST — Envoyer du texte',
@@ -603,9 +605,14 @@
     if (!file) { alert('Sélectionne un fichier'); return; }
     var reader = new FileReader();
     reader.onload = function(e) {
-      request('POST', uri + file.name, e.target.result, file.type || 'application/octet-stream');
+      var blob = new Blob([e.target.result], { type: file.type || 'application/octet-stream' });
+      request('POST', uri + file.name, blob, file.type || 'application/octet-stream');
     };
-    reader.readAsText(file);
+    reader.onerror = function() {
+      setLoading(false);
+      alert('Erreur lecture du fichier');
+    };
+    reader.readAsArrayBuffer(file);
   }
 </script>
 
