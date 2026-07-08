@@ -135,13 +135,13 @@ int main()
         check("CGI 404: status 404", res.status_code == 404);
     }
 
-    // ── CAS 5 : methode non autorisee → 405 ─────────────────────────
+    // ── CAS 5 : methode non autorisee → 403 ─────────────────────────
     // Testé via handle() car c'est une vérification de routing, pas d'exécution CGI
     {
         LocationConfig locGet = makeCgiLoc();
         locGet.addMethod("GET");
         HttpResponse res = handler.handle(makeReq("DELETE", "/cgi-bin/hello.py"), locGet, server).httpResponse;
-        check("CGI 405: methode non autorisee", res.status_code == 405);
+        check("CGI 403: methode non autorisee", res.status_code == 403);
     }
 
     // ── CAS 6 : fichier non executable → 403 ────────────────────────

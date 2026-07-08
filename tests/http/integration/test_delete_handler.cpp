@@ -78,12 +78,12 @@ int main()
         check("DELETE dossier: 403", res.status_code == 403);
     }
 
-    // ── CAS 4 : DELETE methode non autorisee → 405 ──────────────────
+    // ── CAS 4 : DELETE methode non autorisee → 403 ──────────────────
     {
         LocationConfig loc = makeLoc("/", "/tmp", "GET");
         MethodHandler handler;
         HttpResponse res = handler.handle(makeReq("DELETE", "/to_delete.txt"), loc, server).httpResponse;
-        check("DELETE methode non autorisee: 405", res.status_code == 405);
+        check("DELETE methode non autorisee: 403", res.status_code == 403);
     }
 
     // ── CAS 5 : DELETE puis GET verifie que le fichier est bien parti

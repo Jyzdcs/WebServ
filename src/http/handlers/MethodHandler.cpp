@@ -83,7 +83,7 @@ ProcessResult MethodHandler::handle(const HttpRequest& request, const LocationCo
         return result;
     }
     else if (!MethodHandler::isMethodAllowed(request.method, location))
-        response = buildHttpError(405, "Method Not Allowed");
+        response = buildHttpError(403, "Forbidden");
     else if (server.getMaxBodySize() > 0 && request.body.size() > server.getMaxBodySize())
         response = buildHttpError(413, "Payload Too Large");
     else if (isCgiRequest(request, location))

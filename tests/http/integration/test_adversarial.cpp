@@ -222,7 +222,7 @@ int main()
         for (int i = 0; i < 6; i++)
         {
             HttpResponse res = handler.handle(makeReq(methods[i], "/index.html"), loc, server).httpResponse;
-            check("methode inconnue " + methods[i] + " → 405", res.status_code == 405);
+            check("methode inconnue " + methods[i] + " → 403", res.status_code == 403);
         }
         // HEAD est autorisé si GET l'est (RFC 7231) — on vérifie que c'est 200
         {
@@ -324,14 +324,14 @@ int main()
         check("pipeline: body apres separateur", raw.find("\r\n\r\n<!DOCTYPE") != std::string::npos);
     }
 
-    // POST sur route GET-only → 405
+    // POST sur route GET-only → 403
     {
         LocationConfig loc; loc.setPath("/"); loc.setRoot("www"); loc.addMethod("GET");
         ServerConfig   srv; srv.addLocation(loc);
         HttpResponse res = handler.handle(makeReq("POST", "/index.html", "data"), loc, srv).httpResponse;
-        check("POST sur GET-only → 405", res.status_code == 405);
+        check("POST sur GET-only → 403", res.status_code == 403);
         std::string raw = builder.build(res, true);
-        check("405 sérialisé correctement", raw.find("405") != std::string::npos);
+        check("403 sérialisé correctement", raw.find("403") != std::string::npos);
     }
 
     // ════════════════════════════════════════════════════════════

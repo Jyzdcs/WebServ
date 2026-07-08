@@ -63,7 +63,7 @@ Socket::Socket(ServerConfig serverConf) {
 	freeaddrinfo(ai); // free all the addrinfo
 
 	// Mettre l'etat du server en LISTEN
-	if (listen(_fd, 10) == -1) {
+	if (listen(_fd, 128) == -1) {
 		std::cout << "Line 67 in Socket.cpp ";
 		throw ListenFalied();
 	}

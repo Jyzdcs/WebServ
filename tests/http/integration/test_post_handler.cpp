@@ -96,7 +96,7 @@ int main()
         check("POST path traversal: 400", res.status_code == 400);
     }
 
-    // ── CAS 6 : POST methode non autorisee → 405 ────────────────────
+    // ── CAS 6 : POST methode non autorisee → 403 ────────────────────
     {
         LocationConfig loc;
         loc.setPath("/uploads");
@@ -105,7 +105,7 @@ int main()
         loc.addMethod("GET");
         MethodHandler handler;
         HttpResponse res = handler.handle(makeReq("POST", "/uploads/file.txt", "data"), loc, server).httpResponse;
-        check("POST methode non autorisee: 405", res.status_code == 405);
+        check("POST methode non autorisee: 403", res.status_code == 403);
     }
 
     // ── CAS 7 : POST ecrase un fichier existant → 201 ───────────────

@@ -37,7 +37,7 @@ static LocationConfig makeLocationNoRoot()
 {
     LocationConfig loc;
     loc.setPath("/cgi-bin");
-    // pas de root, pas de méthodes → tout appel → 405
+    // pas de root, pas de méthodes → tout appel → 403
     return loc;
 }
 
@@ -57,7 +57,7 @@ static ServerConfig makeServerWithCustomErrorPage()
     server.setPort(8080);
     server.setHost("127.0.0.1");
     // filePath = root + path = "/tmp/www" + "/errors/404.html" = "/tmp/www/errors/404.html"
-    server.addErrorPage(405, "/errors/404.html");
+    server.addErrorPage(403, "/errors/404.html");
     return server;
 }
 
@@ -73,7 +73,7 @@ static void test_no_root_location_skips_error_page()
     std::cout << "\n[TEST] location sans root → status=" << response.status_code
               << " body='" << response.body.substr(0, 30) << "'" << std::endl;
 
-    check("status 405", response.status_code == 405);
+    check("status 403", response.status_code == 403);
     // avec le guard location.getRoot().empty() → body = default error body
     // sans le guard → body = contenu de /tmp/test_custom_404.html
     bool usedCustomPage = response.body.find("Custom 404") != std::string::npos;
@@ -87,13 +87,13 @@ static void test_with_root_location_uses_error_page()
     ServerConfig   server   = makeServerWithCustomErrorPage();
     LocationConfig location = makeLocationWithRoot();
 
-    // on force une 405 en envoyant DELETE sur une location qui n'autorise que GET
+    // on force une 403 en envoyant DELETE sur une location qui n'autorise que GET
     HttpResponse response = handler.handle(makeReq("DELETE", "/"), location, server).httpResponse;
 
     std::cout << "\n[TEST] location avec root → status=" << response.status_code
               << " body='" << response.body.substr(0, 30) << "'" << std::endl;
 
-    check("status 405", response.status_code == 405);
+    check("status 403", response.status_code == 403);
     bool usedCustomPage = response.body.find("Custom 404") != std::string::npos;
     check("custom error page utilisée", usedCustomPage);
 }
