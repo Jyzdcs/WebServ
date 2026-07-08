@@ -47,10 +47,7 @@ Socket::Socket(ServerConfig serverConf) {
 	if (listen(_fd, 128) == -1)
 		throw ListenFalied();
 
-	int flags = fcntl(_fd, F_GETFL, 0);
-	if (flags == -1)
-		throw FcntlFailed();
-	if (fcntl(_fd, F_SETFL, flags | O_NONBLOCK) == -1)
+	if (fcntl(_fd, F_SETFL, O_NONBLOCK) == -1)
 		throw FcntlFailed();
 };
 
@@ -72,16 +69,12 @@ int Socket::acceptConnection() const {
 	struct sockaddr_in client_addr;
 	socklen_t addrlen = sizeof(client_addr);
 	int newConnectionFd;
-	int flags;
 
 	newConnectionFd = accept(_fd, (struct sockaddr *)&client_addr, &addrlen);
 	if (newConnectionFd < 0)
 		throw AcceptNewConnectionFailed();
 
-	flags = fcntl(newConnectionFd, F_GETFL, 0);
-	if (flags == -1)
-		throw FcntlFailed();
-	if (fcntl(newConnectionFd, F_SETFL, flags | O_NONBLOCK) == -1)
+	if (fcntl(newConnectionFd, F_SETFL, O_NONBLOCK) == -1)
 		throw FcntlFailed();
 
 	return newConnectionFd;
