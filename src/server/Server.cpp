@@ -104,28 +104,38 @@ void Server::handleClientWrite(int fd) {
 };
 
 void Server::handleCgiRead(int fd) {
-	CgiContext& ctx = _cgi_map[fd];
+	CgiContext ctx = _cgi_map[fd];
 	char buf[4096];
-	ssize_t n = read(fd, buf, sizeof(buf));
 
-	if (n > 0) {
-		ctx.output += std::string(buf, n);
-	} else {
-		std::cout << "Output is fully" << std::endl;
-		bool timedOut = (n < 0 and time(NULL) >= ctx.deadline);
-		if (timedOut)	kill(ctx.pid, SIGKILL);
-
-		std::cout << "FinishCgi starting" << std::endl;
-		std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
-		std::cout << "FinishCgi end" << std::endl;
-
-		_clients[ctx.clientFd]->setWriteBuffer(res);
-		_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
-		_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
-
-		_poll_manager.removeFd(fd);
-		close(fd);
-		_cgi_map.erase(fd);
+	while (true) {
+		ssize_t n = read(fd, buf, sizeof(buf));
+		if (n > 0) {
+			_cgi_map[fd].output += std::string(buf, n);
+		} else if (n == 0) {
+			_poll_manager.removeFd(fd);
+			_cgi_map.erase(fd);
+			if (!_clients.count(ctx.clientFd))
+				return;
+			std::string res = finishCgi(ctx.output, ctx.pid, false, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+			_clients[ctx.clientFd]->setWriteBuffer(res);
+			_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
+			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
+			return;
+		} else {
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				return;
+			_poll_manager.removeFd(fd);
+			_cgi_map.erase(fd);
+			if (!_clients.count(ctx.clientFd))
+				return;
+			bool timedOut = (time(NULL) >= ctx.deadline);
+			if (timedOut) kill(ctx.pid, SIGKILL);
+			std::string res = finishCgi(ctx.output, ctx.pid, timedOut, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+			_clients[ctx.clientFd]->setWriteBuffer(res);
+			_clients[ctx.clientFd]->setShouldClose(ctx.shouldClose);
+			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
+			return;
+		}
 	}
 };
 
@@ -147,10 +157,37 @@ void Server::checkTimeouts() {
 		int fd = it->first;
 		Client *c = it->second;
 
-		if (now - c->getLastActivity() > TIMEOUT) {
+		bool hasCgi = false;
+		for (std::map<int, CgiContext>::iterator ci = _cgi_map.begin(); ci != _cgi_map.end(); ++ci) {
+			if (ci->second.clientFd == fd) { hasCgi = true; break; }
+		}
+
+		if (!hasCgi && now - c->getLastActivity() > TIMEOUT) {
 			std::cout << "Client " << fd << " has been disconnected for inactivity" << std::endl;
 			++it;
 			closeClient(fd);
+		} else {
+			++it;
+		}
+	}
+}
+
+void Server::checkCgiTimeouts() {
+	std::time_t now = std::time(NULL);
+	std::map<int, CgiContext>::iterator it = _cgi_map.begin();
+	while (it != _cgi_map.end()) {
+		int pipeFd = it->first;
+		CgiContext ctx = it->second;
+		if (now >= ctx.deadline) {
+			kill(ctx.pid, SIGKILL);
+			_poll_manager.removeFd(pipeFd);
+			it = _cgi_map.erase(it);
+			if (!_clients.count(ctx.clientFd))
+				continue;
+			std::string res = finishCgi(ctx.output, ctx.pid, true, ctx.shouldClose, getConfigForClient(_clients[ctx.clientFd]));
+			_clients[ctx.clientFd]->setWriteBuffer(res);
+			_clients[ctx.clientFd]->setShouldClose(true);
+			_poll_manager.updateEvents(ctx.clientFd, POLLIN | POLLOUT);
 		} else {
 			++it;
 		}
@@ -212,7 +249,8 @@ void Server::run() {
 		** Get tout les fds surveillés pour pouvoir boucler dessus et ainsi inspecter revents
 		*/
 		std::vector<struct pollfd> fds = _poll_manager.getFds();
-		for(int i = 0; i < _poll_manager.getSize(); i++) {
+		int fdsSize = (int)fds.size();
+		for(int i = 0; i < fdsSize; i++) {
 			int fd = fds[i].fd;
 			Socket *socket = findListeningSocketByFd(fd);
 			/*
@@ -233,15 +271,15 @@ void Server::run() {
 			*/
 
 			if (_poll_manager.hasError(fd) or _poll_manager.isReadable(fd) or _poll_manager.isWritable(fd)) {
-				std::cout << "actual fd readable or writable=" << fd << std::endl;
+			// fd active
+		}
+			if (_cgi_map.count(fd)) {
+				if (_poll_manager.isReadable(fd) || _poll_manager.hasError(fd))
+					handleCgiRead(fd);
 			}
-			if (_poll_manager.hasError(fd)) {
+			else if (_poll_manager.hasError(fd)) {
 				handleClientRead(fd);
 				continue;
-			}
-			if (_cgi_map.count(fd)) {
-				std::cout << "handleCgiRead" << std::endl;
-				handleCgiRead(fd);
 			}
 			else if (_poll_manager.isReadable(fd)) {
 				std::cout << "handleClientRead" << std::endl;
@@ -252,6 +290,7 @@ void Server::run() {
 			}
 		}
 		checkTimeouts();
+		checkCgiTimeouts();
 	}
 };
 

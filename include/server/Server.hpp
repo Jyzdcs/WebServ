@@ -102,6 +102,7 @@ class Server
 		** Appelé une fois par tour de boucle, après le traitement des fds.
 		*/
 		void checkTimeouts();
+		void checkCgiTimeouts();
 
 		/*
 		** Goal: Retrouve le ServerConfig correspondant au port sur lequel
