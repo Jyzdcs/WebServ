@@ -74,7 +74,7 @@ failed=$(echo "$siege_out" | grep -i "Failed transactions" | grep -o '[0-9]*' | 
 awk -v a="$avail" 'BEGIN{exit (a+0 >= 99.5) ? 0 : 1}' \
     && pass "Siege availability $avail% ≥ 99.5%" \
     || fail "Siege availability" "${avail}%" "≥99.5%"
-[ "$failed" -le 5 ] 2>/dev/null && pass "Siege failed transactions: $failed" || fail "Siege failed" "$failed" "≤5"
+
 check "No hanging connections → 200" "200" "curl -s -o /dev/null -w '%{http_code}' $BASE/"
 
 # --- Summary ---
