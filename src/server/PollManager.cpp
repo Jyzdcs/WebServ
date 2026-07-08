@@ -3,11 +3,9 @@
 
 PollManager::PollManager() {
 	_fds.reserve(5);
-	std::cout << "[PollManager] ctor called\n";
 };
 
 PollManager::~PollManager() {
-	std::cout << "[PollManager] dtor called\n";
 };
 
 // ---------------------- PRIVATE ----------------------
