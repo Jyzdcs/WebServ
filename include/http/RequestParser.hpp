@@ -26,6 +26,7 @@ private:
     void validateHostHeader(const std::string& value, bool& hasHostHeader);
     void parseHeaders(const std::string& raw, HttpRequest& req, std::size_t firstLineEnd, std::size_t headerBodySep);
     void parseBody(const std::string& raw, HttpRequest& req, std::size_t headerBodySep);
+    std::string decodeChunked(const std::string& raw);
 };
 
 #endif

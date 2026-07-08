@@ -61,11 +61,23 @@ bool Client::isRequestComplete() const {
 	std::string::size_type headers_size = header_end + 4;
 	std::string headers = _read_buffer.substr(0, headers_size);
 
-	// Case-insensitive search for Content-Length (RFC 7230: header names are case-insensitive)
 	std::string headers_lower = headers;
 	for (std::size_t i = 0; i < headers_lower.size(); ++i)
 		headers_lower[i] = std::tolower(headers_lower[i]);
 
+	// Chunked transfer: complete when terminating "0\r\n\r\n" is present
+	std::string::size_type te_pos = headers_lower.find("transfer-encoding:");
+	if (te_pos != std::string::npos) {
+		std::string::size_type te_end = headers_lower.find("\r\n", te_pos);
+		std::string te_val = headers_lower.substr(te_pos + 18,
+			te_end != std::string::npos ? te_end - te_pos - 18 : std::string::npos);
+		std::string::size_type first = te_val.find_first_not_of(" \t");
+		if (first != std::string::npos) te_val = te_val.substr(first);
+		if (te_val.find("chunked") != std::string::npos)
+			return _read_buffer.find("0\r\n\r\n", headers_size) != std::string::npos;
+	}
+
+	// Content-Length: wait until full body received
 	const std::string cl_header = "content-length:";
 	std::string::size_type pos = headers_lower.find(cl_header);
 
